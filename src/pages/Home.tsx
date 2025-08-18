@@ -74,27 +74,30 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="flex items-center justify-between px-4 h-16">
-          <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Montage
-          </h1>
+      <header className="sticky top-0 z-50 bg-background border-b border-border">
+        <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2">
+            <img src="/src/assets/montage-icon.png" alt="Montage" className="w-6 h-6" />
+            <h1 className="text-xl font-semibold text-foreground">
+              montage
+            </h1>
+          </div>
+          <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
               size="icon"
               onClick={() => navigate("/create")}
-              className="text-foreground hover:text-primary"
+              className="text-foreground hover:text-primary h-8 w-8"
             >
-              <Plus size={24} />
+              <Plus size={22} />
             </Button>
             <Button 
               variant="ghost" 
               size="icon"
               onClick={() => navigate("/messages")}
-              className="text-foreground hover:text-primary"
+              className="text-foreground hover:text-primary h-8 w-8"
             >
-              <Send size={24} />
+              <Send size={22} />
             </Button>
           </div>
         </div>

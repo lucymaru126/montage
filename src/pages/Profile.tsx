@@ -93,80 +93,82 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-        <div className="flex items-center justify-between px-4 h-16">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-foreground">{currentUser.username}</h1>
-          </div>
+      <header className="sticky top-0 z-50 bg-background border-b border-border">
+        <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2">
             <Button 
               variant="ghost" 
               size="icon"
-              onClick={handleLogout}
-              className="text-foreground hover:text-destructive"
+              onClick={() => navigate(-1)}
+              className="text-foreground hover:text-primary h-8 w-8"
             >
-              <LogOut size={20} />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => navigate("/settings")}
-              className="text-foreground hover:text-primary"
-            >
-              <Settings size={20} />
-            </Button>
+            <h1 className="text-lg font-semibold text-foreground">@{currentUser.username}</h1>
           </div>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => navigate("/settings")}
+            className="text-foreground hover:text-primary h-8 w-8"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="1" fill="currentColor"/>
+              <circle cx="19" cy="12" r="1" fill="currentColor"/>
+              <circle cx="5" cy="12" r="1" fill="currentColor"/>
+            </svg>
+          </Button>
         </div>
       </header>
 
-      <div className="px-4 py-6 space-y-6">
+      <div className="space-y-6">
         {/* Profile Info */}
-        <div className="flex items-start gap-4">
-          <div className="relative">
-            <Avatar className="w-24 h-24 ring-4 ring-background shadow-elevated">
+        <div className="px-4 py-4">
+          <div className="flex items-center gap-6 mb-4">
+            <Avatar className="w-20 h-20">
               <AvatarImage src={currentUser.avatar} />
-              <AvatarFallback className="bg-gradient-primary text-primary-foreground text-2xl font-bold">
+              <AvatarFallback className="bg-gradient-primary text-primary-foreground text-xl font-bold">
                 {currentUser.fullName.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            {/* Story Ring for demonstration */}
-            <div className="absolute inset-0 w-24 h-24 rounded-full bg-gradient-story p-0.5">
-              <div className="w-full h-full rounded-full bg-background"></div>
+            
+            <div className="flex-1 flex justify-around text-center">
+              <div>
+                <p className="text-lg font-bold text-foreground">{userPosts.length}</p>
+                <p className="text-sm text-muted-foreground">Posts</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-foreground">{currentUser.followers.length}M</p>
+                <p className="text-sm text-muted-foreground">Followers</p>
+              </div>
+              <div>
+                <p className="text-lg font-bold text-foreground">{currentUser.following.length}</p>
+                <p className="text-sm text-muted-foreground">Following</p>
+              </div>
             </div>
           </div>
 
-          <div className="flex-1 space-y-3">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">{currentUser.fullName}</h2>
-              <p className="text-muted-foreground">@{currentUser.username}</p>
-            </div>
-            
+          <div className="mb-4">
+            <h2 className="text-sm font-bold text-foreground">{currentUser.fullName}</h2>
+            <p className="text-xs text-muted-foreground mb-1">{currentUser.bio || "Twice K-Pop Idol Group Member"}</p>
             {currentUser.bio && (
               <p className="text-sm text-foreground">{currentUser.bio}</p>
             )}
+          </div>
 
-            <div className="flex items-center gap-6 text-sm">
-              <div className="text-center">
-                <p className="font-semibold text-foreground">{userPosts.length}</p>
-                <p className="text-muted-foreground">Posts</p>
-              </div>
-              <div className="text-center">
-                <p className="font-semibold text-foreground">{currentUser.followers.length}</p>
-                <p className="text-muted-foreground">Followers</p>
-              </div>
-              <div className="text-center">
-                <p className="font-semibold text-foreground">{currentUser.following.length}</p>
-                <p className="text-muted-foreground">Following</p>
-              </div>
-            </div>
+          <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 rounded-lg mb-4">
+            Follow
+          </Button>
 
-            <Dialog open={isEditingProfile} onOpenChange={setIsEditingProfile}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="w-full rounded-lg">
-                  <Edit size={16} className="mr-2" />
-                  Edit Profile
-                </Button>
-              </DialogTrigger>
+          <Dialog open={isEditingProfile} onOpenChange={setIsEditingProfile}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="w-full rounded-lg">
+                <Edit size={16} className="mr-2" />
+                Edit Profile
+              </Button>
+            </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>Edit Profile</DialogTitle>
@@ -231,23 +233,19 @@ const Profile = () => {
                 </div>
               </DialogContent>
             </Dialog>
-          </div>
         </div>
 
         {/* Content Tabs */}
         <Tabs defaultValue="posts" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-muted rounded-full p-1">
-            <TabsTrigger value="posts" className="flex items-center gap-2 rounded-full">
-              <Grid size={16} />
-              Posts
+          <TabsList className="grid w-full grid-cols-3 bg-transparent border-t border-border h-12">
+            <TabsTrigger value="posts" className="flex items-center justify-center border-0 bg-transparent data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-foreground rounded-none">
+              <Grid size={20} />
             </TabsTrigger>
-            <TabsTrigger value="saved" className="flex items-center gap-2 rounded-full">
-              <Bookmark size={16} />
-              Saved
+            <TabsTrigger value="saved" className="flex items-center justify-center border-0 bg-transparent data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-foreground rounded-none">
+              <Bookmark size={20} />
             </TabsTrigger>
-            <TabsTrigger value="liked" className="flex items-center gap-2 rounded-full">
-              <Heart size={16} />
-              Liked
+            <TabsTrigger value="liked" className="flex items-center justify-center border-0 bg-transparent data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-foreground rounded-none">
+              <Heart size={20} />
             </TabsTrigger>
           </TabsList>
 
@@ -269,14 +267,15 @@ const Profile = () => {
                 </GradientButton>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-3 gap-0.5 px-4">
                 {userPosts.map(post => (
-                  <div key={post.id} className="aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
+                  <div key={post.id} className="aspect-square bg-muted overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
                     {post.images.length > 0 ? (
                       <img 
                         src={post.images[0]} 
                         alt="Post"
                         className="w-full h-full object-cover"
+                        onClick={() => navigate(`/post/${post.id}`)}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-subtle">
