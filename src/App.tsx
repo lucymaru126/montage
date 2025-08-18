@@ -13,6 +13,9 @@ import Messages from "./pages/Messages";
 import Activity from "./pages/Activity";
 import Stories from "./pages/Stories";
 import Settings from "./pages/Settings";
+import UserProfile from "./pages/UserProfile";
+import FollowersList from "./pages/FollowersList";
+import Chat from "./pages/Chat";
 import BottomNav from "./components/BottomNav";
 import NotFound from "./pages/NotFound";
 
@@ -21,7 +24,7 @@ const queryClient = new QueryClient();
 // Layout component to conditionally show bottom navigation
 const AppLayout = () => {
   const location = useLocation();
-  const showBottomNav = location.pathname !== "/auth";
+  const showBottomNav = location.pathname !== "/auth" && !location.pathname.startsWith("/messages/chat");
 
   return (
     <>
@@ -35,6 +38,9 @@ const AppLayout = () => {
         <Route path="/activity" element={<Activity />} />
         <Route path="/stories" element={<Stories />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/user/:userId" element={<UserProfile />} />
+        <Route path="/user/:userId/:type" element={<FollowersList />} />
+        <Route path="/messages/chat/:userId" element={<Chat />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       {showBottomNav && <BottomNav />}

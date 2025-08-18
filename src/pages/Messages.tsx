@@ -101,7 +101,11 @@ const Messages = () => {
                 </div>
               ) : (
                 filteredUsers.map(user => (
-                  <Card key={user.id} className="border border-border hover:border-primary/20 transition-colors cursor-pointer">
+                  <Card 
+                    key={user.id} 
+                    className="border border-border hover:border-primary/20 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/messages/chat/${user.id}`)}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
                         <Avatar className="w-12 h-12">
@@ -146,7 +150,11 @@ const Messages = () => {
                 if (!otherUser) return null;
 
                 return (
-                  <Card key={conversation.id} className="border border-border hover:border-primary/20 transition-colors cursor-pointer">
+                  <Card 
+                    key={conversation.id} 
+                    className="border border-border hover:border-primary/20 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/messages/chat/${otherUser.id}`)}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
                         <Avatar className="w-12 h-12">

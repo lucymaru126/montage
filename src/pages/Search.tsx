@@ -76,7 +76,11 @@ const Search = () => {
               <h2 className="text-lg font-semibold text-foreground mb-4">Discover People</h2>
               <div className="grid grid-cols-2 gap-4">
                 {users.filter(user => user.id !== currentUser.id).slice(0, 6).map(user => (
-                  <Card key={user.id} className="border border-border hover:border-primary/20 transition-colors cursor-pointer">
+                  <Card 
+                    key={user.id} 
+                    className="border border-border hover:border-primary/20 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/user/${user.id}`)}
+                  >
                     <CardContent className="p-4 text-center">
                       <Avatar className="w-16 h-16 mx-auto mb-3">
                         <AvatarImage src={user.avatar} />
@@ -86,8 +90,15 @@ const Search = () => {
                       </Avatar>
                       <h3 className="font-semibold text-sm text-foreground">{user.username}</h3>
                       <p className="text-xs text-muted-foreground mb-3 truncate">{user.fullName}</p>
-                      <Button size="sm" className="bg-gradient-primary text-primary-foreground text-xs px-4 py-1 rounded-full">
-                        Follow
+                      <Button 
+                        size="sm" 
+                        className="bg-gradient-primary text-primary-foreground text-xs px-4 py-1 rounded-full"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/user/${user.id}`);
+                        }}
+                      >
+                        View Profile
                       </Button>
                     </CardContent>
                   </Card>
@@ -117,7 +128,11 @@ const Search = () => {
                 </div>
               ) : (
                 filteredUsers.map(user => (
-                  <Card key={user.id} className="border border-border hover:border-primary/20 transition-colors cursor-pointer">
+                  <Card 
+                    key={user.id} 
+                    className="border border-border hover:border-primary/20 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/user/${user.id}`)}
+                  >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
                         <Avatar className="w-12 h-12">
@@ -133,8 +148,15 @@ const Search = () => {
                             <p className="text-xs text-muted-foreground truncate mt-1">{user.bio}</p>
                           )}
                         </div>
-                        <Button size="sm" className="bg-gradient-primary text-primary-foreground px-4 py-1 rounded-full">
-                          Follow
+                        <Button 
+                          size="sm" 
+                          className="bg-gradient-primary text-primary-foreground px-4 py-1 rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/user/${user.id}`);
+                          }}
+                        >
+                          View Profile
                         </Button>
                       </div>
                     </CardContent>

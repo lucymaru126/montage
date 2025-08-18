@@ -91,7 +91,11 @@ const Home = () => {
 
           {/* Other Users' Stories */}
           {users.filter(user => user.id !== currentUser.id).map(user => (
-            <div key={user.id} className="flex flex-col items-center gap-2 flex-shrink-0">
+            <button
+              key={user.id} 
+              className="flex flex-col items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
+              onClick={() => navigate(`/user/${user.id}`)}
+            >
               <div className="p-0.5 bg-gradient-story rounded-full">
                 <Avatar className="w-16 h-16 ring-2 ring-background">
                   <AvatarImage src={user.avatar} />
@@ -103,7 +107,7 @@ const Home = () => {
               <span className="text-xs text-foreground font-medium truncate max-w-[4rem]">
                 {user.username}
               </span>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -136,18 +140,21 @@ const Home = () => {
                 <CardContent className="p-0">
                   {/* Post Header */}
                   <div className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
+                    <button 
+                      className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                      onClick={() => navigate(`/user/${postUser.id}`)}
+                    >
                       <Avatar className="w-10 h-10">
                         <AvatarImage src={postUser.avatar} />
                         <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold text-sm">
                           {postUser.fullName.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div>
+                      <div className="text-left">
                         <p className="font-semibold text-foreground text-sm">{postUser.username}</p>
                         <p className="text-xs text-muted-foreground">{formatTimeAgo(post.createdAt)}</p>
                       </div>
-                    </div>
+                    </button>
                   </div>
 
                   {/* Post Images */}
