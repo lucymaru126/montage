@@ -30,8 +30,10 @@ export interface Story {
   id: string;
   userId: string;
   content: string;
-  image: string;
+  image?: string;
   video?: string;
+  textOverlay?: string;
+  textColor?: string;
   expiresAt: string;
   views: string[];
   likes: string[];

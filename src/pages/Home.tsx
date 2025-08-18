@@ -95,7 +95,10 @@ const Home = () => {
       <div className="border-b border-border py-4">
         <div className="flex items-center gap-3 px-4 overflow-x-auto">
           {/* Your Story */}
-          <div className="flex flex-col items-center gap-2 flex-shrink-0">
+          <button 
+            className="flex flex-col items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
+            onClick={() => navigate("/stories")}
+          >
             <div className="relative">
               <Avatar className="w-16 h-16 ring-2 ring-muted">
                 <AvatarImage src={currentUser.avatar} />
@@ -108,14 +111,14 @@ const Home = () => {
               </div>
             </div>
             <span className="text-xs text-foreground font-medium">Your story</span>
-          </div>
+          </button>
 
           {/* Other Users' Stories */}
           {users.filter(user => user.id !== currentUser.id).map(user => (
             <button
               key={user.id} 
               className="flex flex-col items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
-              onClick={() => navigate(`/user/${user.id}`)}
+              onClick={() => navigate(`/story/${user.id}/0`)}
             >
               <div className="p-0.5 bg-gradient-story rounded-full">
                 <Avatar className="w-16 h-16 ring-2 ring-background">
@@ -183,23 +186,7 @@ const Home = () => {
                     <div 
                       className="aspect-square bg-muted cursor-pointer" 
                       onDoubleClick={() => handleLike(post.id)}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        navigate(`/post/${post.id}`);
-                      }}
-                      onTouchStart={(e) => {
-                        let touchTimeout: NodeJS.Timeout;
-                        touchTimeout = setTimeout(() => {
-                          navigate(`/post/${post.id}`);
-                        }, 500);
-                        
-                        const handleTouchEnd = () => {
-                          clearTimeout(touchTimeout);
-                          document.removeEventListener('touchend', handleTouchEnd);
-                        };
-                        
-                        document.addEventListener('touchend', handleTouchEnd);
-                      }}
+                      onClick={() => navigate(`/post/${post.id}`)}
                     >
                       <img 
                         src={post.images[0]} 

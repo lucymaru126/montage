@@ -1,21 +1,21 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, X } from "lucide-react";
+import { ArrowLeft, Plus, X, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { GradientButton } from "@/components/ui/button-variants";
 import { getCurrentUser, getStories, saveStory, generateId, generateStoryExpiration, getUserById, Story } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import StoryEditor from "@/components/StoryEditor";
 
 const Stories = () => {
   const [currentUser, setCurrentUser] = useState(getCurrentUser());
   const [stories, setStories] = useState<Story[]>([]);
   const [isCreating, setIsCreating] = useState(false);
-  const [newStoryContent, setNewStoryContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<string>("");
   const [selectedVideo, setSelectedVideo] = useState<string>("");
+  const [showEditor, setShowEditor] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -44,23 +44,28 @@ const Stories = () => {
       if (event.target?.result) {
         if (isVideo) {
           setSelectedVideo(event.target.result as string);
+          setSelectedImage("");
         } else {
           setSelectedImage(event.target.result as string);
+          setSelectedVideo("");
         }
+        setShowEditor(true);
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleCreateStory = () => {
-    if (!currentUser || (!newStoryContent.trim() && !selectedImage && !selectedVideo)) return;
+  const handleCreateStory = (content: string, textOverlay?: string, textColor?: string) => {
+    if (!currentUser || (!content.trim() && !selectedImage && !selectedVideo && !textOverlay)) return;
 
     const story: Story = {
       id: generateId(),
       userId: currentUser.id,
-      content: newStoryContent,
+      content: content,
       image: selectedImage,
       video: selectedVideo,
+      textOverlay,
+      textColor,
       expiresAt: generateStoryExpiration(),
       views: [],
       likes: [],
@@ -69,9 +74,9 @@ const Stories = () => {
     };
 
     saveStory(story);
-    setNewStoryContent("");
     setSelectedImage("");
     setSelectedVideo("");
+    setShowEditor(false);
     setIsCreating(false);
     loadStories();
     
@@ -130,7 +135,6 @@ const Stories = () => {
                   size="icon"
                   onClick={() => {
                     setIsCreating(false);
-                    setNewStoryContent("");
                     setSelectedImage("");
                     setSelectedVideo("");
                   }}
@@ -140,86 +144,51 @@ const Stories = () => {
               </div>
 
               <div className="space-y-4">
-                {(selectedImage || selectedVideo) && (
-                  <div className="relative">
-                    {selectedImage ? (
-                      <img 
-                        src={selectedImage} 
-                        alt="Story preview" 
-                        className="w-full h-48 object-cover rounded-lg"
-                      />
-                    ) : (
-                      <video 
-                        src={selectedVideo} 
-                        className="w-full h-48 object-cover rounded-lg"
-                        controls
-                      />
-                    )}
-                    <Button 
-                      variant="destructive" 
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => {
-                        setSelectedImage("");
-                        setSelectedVideo("");
-                      }}
-                    >
-                      <X size={16} />
-                    </Button>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Add Image or Video
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                    <div className="aspect-square bg-gradient-primary rounded-lg flex flex-col items-center justify-center text-primary-foreground hover:opacity-80 transition-opacity">
+                      <Camera size={32} className="mb-2" />
+                      <span className="text-sm font-medium">Upload Media</span>
+                    </div>
                   </label>
-                  <input
-                    type="file"
-                    accept="image/*,video/*"
-                    onChange={handleImageUpload}
-                    className="w-full p-2 border border-border rounded-lg bg-background text-foreground"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Caption
-                  </label>
-                  <Textarea
-                    placeholder="What's on your mind?"
-                    value={newStoryContent}
-                    onChange={(e) => setNewStoryContent(e.target.value)}
-                    className="resize-none"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex gap-3">
-                  <Button 
-                    variant="outline" 
+                  
+                  <button
                     onClick={() => {
-                      setIsCreating(false);
-                      setNewStoryContent("");
                       setSelectedImage("");
                       setSelectedVideo("");
+                      setShowEditor(true);
                     }}
-                    className="flex-1"
+                    className="aspect-square bg-gradient-subtle rounded-lg flex flex-col items-center justify-center text-foreground hover:opacity-80 transition-opacity"
                   >
-                    Cancel
-                  </Button>
-                  <GradientButton
-                    variant="primary"
-                    onClick={handleCreateStory}
-                    className="flex-1"
-                    disabled={!newStoryContent.trim() && !selectedImage && !selectedVideo}
-                  >
-                    Share
-                  </GradientButton>
+                    <Plus size={32} className="mb-2" />
+                    <span className="text-sm font-medium">Text Story</span>
+                  </button>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Story Editor */}
+      {showEditor && (
+        <StoryEditor
+          selectedImage={selectedImage}
+          selectedVideo={selectedVideo}
+          onCancel={() => {
+            setShowEditor(false);
+            setSelectedImage("");
+            setSelectedVideo("");
+            setIsCreating(false);
+          }}
+          onShare={handleCreateStory}
+        />
       )}
 
       {/* Stories Grid */}

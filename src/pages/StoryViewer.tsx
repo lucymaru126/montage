@@ -227,23 +227,59 @@ const StoryViewer = () => {
         }}
       >
         {currentStory.image ? (
-          <img 
-            src={currentStory.image}
-            alt="Story"
-            className="w-full h-full object-contain"
-          />
+          <div className="relative w-full h-full">
+            <img 
+              src={currentStory.image}
+              alt="Story"
+              className="w-full h-full object-contain"
+            />
+            {currentStory.textOverlay && (
+              <div 
+                className="absolute inset-0 flex items-center justify-center p-8"
+                style={{ color: currentStory.textColor || "#ffffff" }}
+              >
+                <p 
+                  className="text-3xl font-bold text-center break-words max-w-full"
+                  style={{ 
+                    textShadow: (currentStory.textColor || "#ffffff") === "#ffffff" ? "2px 2px 4px rgba(0,0,0,0.8)" : "2px 2px 4px rgba(255,255,255,0.8)",
+                    wordWrap: "break-word"
+                  }}
+                >
+                  {currentStory.textOverlay}
+                </p>
+              </div>
+            )}
+          </div>
         ) : currentStory.video ? (
-          <video 
-            src={currentStory.video}
-            className="w-full h-full object-contain"
-            autoPlay
-            muted={isMuted}
-            loop
-          />
+          <div className="relative w-full h-full">
+            <video 
+              src={currentStory.video}
+              className="w-full h-full object-contain"
+              autoPlay
+              muted={isMuted}
+              loop
+            />
+            {currentStory.textOverlay && (
+              <div 
+                className="absolute inset-0 flex items-center justify-center p-8 pointer-events-none"
+                style={{ color: currentStory.textColor || "#ffffff" }}
+              >
+                <p 
+                  className="text-3xl font-bold text-center break-words max-w-full"
+                  style={{ 
+                    textShadow: (currentStory.textColor || "#ffffff") === "#ffffff" ? "2px 2px 4px rgba(0,0,0,0.8)" : "2px 2px 4px rgba(255,255,255,0.8)",
+                    wordWrap: "break-word"
+                  }}
+                >
+                  {currentStory.textOverlay}
+                </p>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-subtle">
             <p className="text-white text-2xl text-center p-8 max-w-md">
-              {currentStory.content}
+              {currentStory.content || currentStory.textOverlay}
             </p>
           </div>
         )}
