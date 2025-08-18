@@ -52,10 +52,10 @@ const Settings = () => {
 
   const settingsItems = [
     { icon: User, label: "Account", subtitle: "Privacy, security, password", path: "/settings/account" },
-    { icon: Bell, label: "Notifications", subtitle: "Push, email, SMS", hasSwitch: true },
-    { icon: Lock, label: "Privacy", subtitle: "Account privacy", hasSwitch: true },
+    { icon: Bell, label: "Notifications", subtitle: "Push, email, SMS", hasSwitch: true, path: "/settings/notifications" },
+    { icon: Lock, label: "Privacy", subtitle: "Account privacy", hasSwitch: true, path: "/settings/privacy" },
     { icon: HelpCircle, label: "Help", subtitle: "Help center, contact us", path: "/settings/help" },
-    { icon: Shield, label: "About", subtitle: "Terms, privacy policy", path: "/settings/about" },
+    { icon: Shield, label: "About", subtitle: "Terms, privacy policy", path: "/settings/help" },
   ];
 
   const adminItems = [
@@ -108,7 +108,15 @@ const Settings = () => {
         {/* Settings List */}
         <div className="space-y-2">
           {settingsItems.map((item, index) => (
-            <Card key={index} className="bg-card border-border">
+            <Card 
+              key={index} 
+              className="bg-card border-border cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => {
+                if (item.path) {
+                  navigate(item.path);
+                }
+              }}
+            >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -124,10 +132,13 @@ const Settings = () => {
                       onCheckedChange={(checked) => {
                         if (item.label === "Notifications") {
                           setNotifications(checked);
+                          navigate("/settings/notifications");
                         } else {
                           setPrivateAccount(checked);
+                          navigate("/settings/privacy");
                         }
                       }}
+                      onClick={(e) => e.stopPropagation()}
                     />
                   )}
                 </div>

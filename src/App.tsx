@@ -13,6 +13,10 @@ import Messages from "./pages/Messages";
 import Activity from "./pages/Activity";
 import Stories from "./pages/Stories";
 import Settings from "./pages/Settings";
+import AccountSettings from "./pages/AccountSettings";
+import NotificationSettings from "./pages/NotificationSettings";
+import PrivacySettings from "./pages/PrivacySettings";
+import HelpSettings from "./pages/HelpSettings";
 import UserProfile from "./pages/UserProfile";
 import FollowersList from "./pages/FollowersList";
 import Chat from "./pages/Chat";
@@ -40,6 +44,10 @@ const AppLayout = () => {
         <Route path="/activity" element={<Activity />} />
         <Route path="/stories" element={<Stories />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/account" element={<AccountSettings />} />
+        <Route path="/settings/notifications" element={<NotificationSettings />} />
+        <Route path="/settings/privacy" element={<PrivacySettings />} />
+        <Route path="/settings/help" element={<HelpSettings />} />
         <Route path="/user/:userId" element={<UserProfile />} />
         <Route path="/user/:userId/:type" element={<FollowersList />} />
         <Route path="/messages/chat/:userId" element={<Chat />} />
