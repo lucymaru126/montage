@@ -15,6 +15,7 @@ const Stories = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [newStoryContent, setNewStoryContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<string>("");
+  const [selectedVideo, setSelectedVideo] = useState<string>("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -35,31 +36,42 @@ const Stories = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Check if it's video or image
+    const isVideo = file.type.startsWith('video/');
+    
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
-        setSelectedImage(event.target.result as string);
+        if (isVideo) {
+          setSelectedVideo(event.target.result as string);
+        } else {
+          setSelectedImage(event.target.result as string);
+        }
       }
     };
     reader.readAsDataURL(file);
   };
 
   const handleCreateStory = () => {
-    if (!currentUser || (!newStoryContent.trim() && !selectedImage)) return;
+    if (!currentUser || (!newStoryContent.trim() && !selectedImage && !selectedVideo)) return;
 
     const story: Story = {
       id: generateId(),
       userId: currentUser.id,
       content: newStoryContent,
       image: selectedImage,
+      video: selectedVideo,
       expiresAt: generateStoryExpiration(),
       views: [],
+      likes: [],
+      replies: [],
       createdAt: new Date().toISOString()
     };
 
     saveStory(story);
     setNewStoryContent("");
     setSelectedImage("");
+    setSelectedVideo("");
     setIsCreating(false);
     loadStories();
     
@@ -120,6 +132,7 @@ const Stories = () => {
                     setIsCreating(false);
                     setNewStoryContent("");
                     setSelectedImage("");
+                    setSelectedVideo("");
                   }}
                 >
                   <X size={20} />
@@ -127,18 +140,29 @@ const Stories = () => {
               </div>
 
               <div className="space-y-4">
-                {selectedImage && (
+                {(selectedImage || selectedVideo) && (
                   <div className="relative">
-                    <img 
-                      src={selectedImage} 
-                      alt="Story preview" 
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
+                    {selectedImage ? (
+                      <img 
+                        src={selectedImage} 
+                        alt="Story preview" 
+                        className="w-full h-48 object-cover rounded-lg"
+                      />
+                    ) : (
+                      <video 
+                        src={selectedVideo} 
+                        className="w-full h-48 object-cover rounded-lg"
+                        controls
+                      />
+                    )}
                     <Button 
                       variant="destructive" 
                       size="sm"
                       className="absolute top-2 right-2"
-                      onClick={() => setSelectedImage("")}
+                      onClick={() => {
+                        setSelectedImage("");
+                        setSelectedVideo("");
+                      }}
                     >
                       <X size={16} />
                     </Button>
@@ -147,11 +171,11 @@ const Stories = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-2">
-                    Add Image
+                    Add Image or Video
                   </label>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/*,video/*"
                     onChange={handleImageUpload}
                     className="w-full p-2 border border-border rounded-lg bg-background text-foreground"
                   />
@@ -177,6 +201,7 @@ const Stories = () => {
                       setIsCreating(false);
                       setNewStoryContent("");
                       setSelectedImage("");
+                      setSelectedVideo("");
                     }}
                     className="flex-1"
                   >
@@ -186,7 +211,7 @@ const Stories = () => {
                     variant="primary"
                     onClick={handleCreateStory}
                     className="flex-1"
-                    disabled={!newStoryContent.trim() && !selectedImage}
+                    disabled={!newStoryContent.trim() && !selectedImage && !selectedVideo}
                   >
                     Share
                   </GradientButton>
@@ -244,8 +269,12 @@ const Stories = () => {
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    {userStories.map((story) => (
-                      <Card key={story.id} className="bg-card border-border overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
+                    {userStories.map((story, index) => (
+                      <Card 
+                        key={story.id} 
+                        className="bg-card border-border overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => navigate(`/story/${userId}/${index}`)}
+                      >
                         <CardContent className="p-0">
                           <div className="aspect-[3/4] relative">
                             {story.image ? (
@@ -254,6 +283,12 @@ const Stories = () => {
                                 alt="Story"
                                 className="w-full h-full object-cover"
                               />
+                            ) : story.video ? (
+                              <video 
+                                src={story.video} 
+                                className="w-full h-full object-cover"
+                                muted
+                              />
                             ) : (
                               <div className="w-full h-full bg-gradient-subtle flex items-center justify-center p-4">
                                 <p className="text-sm text-center text-foreground line-clamp-6">
@@ -261,7 +296,7 @@ const Stories = () => {
                                 </p>
                               </div>
                             )}
-                            {story.content && story.image && (
+                            {story.content && (story.image || story.video) && (
                               <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-2">
                                 <p className="text-white text-xs line-clamp-2">
                                   {story.content}

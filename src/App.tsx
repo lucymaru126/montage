@@ -16,6 +16,8 @@ import Settings from "./pages/Settings";
 import UserProfile from "./pages/UserProfile";
 import FollowersList from "./pages/FollowersList";
 import Chat from "./pages/Chat";
+import StoryViewer from "./pages/StoryViewer";
+import PostViewer from "./pages/PostViewer";
 import BottomNav from "./components/BottomNav";
 import NotFound from "./pages/NotFound";
 
@@ -41,6 +43,8 @@ const AppLayout = () => {
         <Route path="/user/:userId" element={<UserProfile />} />
         <Route path="/user/:userId/:type" element={<FollowersList />} />
         <Route path="/messages/chat/:userId" element={<Chat />} />
+        <Route path="/story/:userId/:storyIndex" element={<StoryViewer />} />
+        <Route path="/post/:postId" element={<PostViewer />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       {showBottomNav && <BottomNav />}

@@ -31,8 +31,18 @@ export interface Story {
   userId: string;
   content: string;
   image: string;
+  video?: string;
   expiresAt: string;
   views: string[];
+  likes: string[];
+  replies: StoryReply[];
+  createdAt: string;
+}
+
+export interface StoryReply {
+  id: string;
+  userId: string;
+  content: string;
   createdAt: string;
 }
 
@@ -277,4 +287,130 @@ export const generateStoryExpiration = (): string => {
   const now = new Date();
   now.setHours(now.getHours() + 24); // Stories expire in 24 hours
   return now.toISOString();
+};
+
+// Like/Unlike functions
+export const togglePostLike = (postId: string, userId: string): void => {
+  const posts = getPosts();
+  const postIndex = posts.findIndex(p => p.id === postId);
+  
+  if (postIndex >= 0) {
+    const post = posts[postIndex];
+    if (post.likes.includes(userId)) {
+      post.likes = post.likes.filter(id => id !== userId);
+    } else {
+      post.likes.push(userId);
+    }
+    posts[postIndex] = post;
+    savePosts(posts);
+  }
+};
+
+export const toggleStoryLike = (storyId: string, userId: string): void => {
+  const stories = getFromStorage<Story>(STORAGE_KEYS.STORIES);
+  const storyIndex = stories.findIndex(s => s.id === storyId);
+  
+  if (storyIndex >= 0) {
+    const story = stories[storyIndex];
+    if (!story.likes) story.likes = [];
+    
+    if (story.likes.includes(userId)) {
+      story.likes = story.likes.filter(id => id !== userId);
+    } else {
+      story.likes.push(userId);
+    }
+    stories[storyIndex] = story;
+    saveToStorage(STORAGE_KEYS.STORIES, stories);
+  }
+};
+
+export const addStoryView = (storyId: string, userId: string): void => {
+  const stories = getFromStorage<Story>(STORAGE_KEYS.STORIES);
+  const storyIndex = stories.findIndex(s => s.id === storyId);
+  
+  if (storyIndex >= 0) {
+    const story = stories[storyIndex];
+    if (!story.views.includes(userId)) {
+      story.views.push(userId);
+      stories[storyIndex] = story;
+      saveToStorage(STORAGE_KEYS.STORIES, stories);
+    }
+  }
+};
+
+export const addStoryReply = (storyId: string, userId: string, content: string): void => {
+  const stories = getFromStorage<Story>(STORAGE_KEYS.STORIES);
+  const storyIndex = stories.findIndex(s => s.id === storyId);
+  
+  if (storyIndex >= 0) {
+    const story = stories[storyIndex];
+    if (!story.replies) story.replies = [];
+    
+    const reply: StoryReply = {
+      id: generateId(),
+      userId,
+      content,
+      createdAt: new Date().toISOString()
+    };
+    
+    story.replies.push(reply);
+    stories[storyIndex] = story;
+    saveToStorage(STORAGE_KEYS.STORIES, stories);
+    
+    // Also create a DM conversation
+    const storyOwner = getUserById(story.userId);
+    if (storyOwner && storyOwner.id !== userId) {
+      const conversations = getFromStorage<Conversation>(STORAGE_KEYS.CONVERSATIONS);
+      let conversation = conversations.find(conv => 
+        conv.participants.includes(userId) && conv.participants.includes(story.userId)
+      );
+      
+      if (!conversation) {
+        conversation = {
+          id: generateId(),
+          participants: [userId, story.userId],
+          messages: [],
+          lastMessage: {
+            id: '',
+            fromUserId: '',
+            toUserId: '',
+            content: '',
+            createdAt: new Date().toISOString(),
+            read: true
+          }
+        };
+      }
+      
+      const message: Message = {
+        id: generateId(),
+        fromUserId: userId,
+        toUserId: story.userId,
+        content: `Replied to your story: ${content}`,
+        createdAt: new Date().toISOString(),
+        read: false
+      };
+      
+      conversation.messages.push(message);
+      conversation.lastMessage = message;
+      
+      saveConversation(conversation);
+    }
+  }
+};
+
+export const addPostComment = (postId: string, userId: string, content: string): void => {
+  const posts = getPosts();
+  const postIndex = posts.findIndex(p => p.id === postId);
+  
+  if (postIndex >= 0) {
+    const comment: Comment = {
+      id: generateId(),
+      userId,
+      content,
+      createdAt: new Date().toISOString()
+    };
+    
+    posts[postIndex].comments.push(comment);
+    savePosts(posts);
+  }
 };

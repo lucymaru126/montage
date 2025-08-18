@@ -3,14 +3,16 @@ import { Plus, Heart, MessageCircle, Send, Bookmark } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { getCurrentUser, getPosts, getUsers, Post, User } from "@/lib/storage";
+import { getCurrentUser, getPosts, getUsers, togglePostLike, Post, User } from "@/lib/storage";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const Home = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -26,6 +28,25 @@ const Home = () => {
 
   const getUserById = (userId: string) => {
     return users.find(user => user.id === userId);
+  };
+
+  const handleLike = (postId: string) => {
+    if (!currentUser) return;
+    
+    togglePostLike(postId, currentUser.id);
+    
+    // Update local state
+    setPosts(prevPosts => 
+      prevPosts.map(post => {
+        if (post.id === postId) {
+          const newLikes = post.likes.includes(currentUser.id)
+            ? post.likes.filter(id => id !== currentUser.id)
+            : [...post.likes, currentUser.id];
+          return { ...post, likes: newLikes };
+        }
+        return post;
+      })
+    );
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -159,7 +180,27 @@ const Home = () => {
 
                   {/* Post Images */}
                   {post.images.length > 0 && (
-                    <div className="aspect-square bg-muted">
+                    <div 
+                      className="aspect-square bg-muted cursor-pointer" 
+                      onDoubleClick={() => handleLike(post.id)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        navigate(`/post/${post.id}`);
+                      }}
+                      onTouchStart={(e) => {
+                        let touchTimeout: NodeJS.Timeout;
+                        touchTimeout = setTimeout(() => {
+                          navigate(`/post/${post.id}`);
+                        }, 500);
+                        
+                        const handleTouchEnd = () => {
+                          clearTimeout(touchTimeout);
+                          document.removeEventListener('touchend', handleTouchEnd);
+                        };
+                        
+                        document.addEventListener('touchend', handleTouchEnd);
+                      }}
+                    >
                       <img 
                         src={post.images[0]} 
                         alt="Post content"
@@ -172,10 +213,24 @@ const Home = () => {
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-4">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-foreground hover:text-destructive">
-                          <Heart size={20} />
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleLike(post.id)}
+                          className={`h-8 w-8 ${
+                            post.likes.includes(currentUser.id) 
+                              ? 'text-red-500' 
+                              : 'text-foreground hover:text-red-500'
+                          }`}
+                        >
+                          <Heart size={20} fill={post.likes.includes(currentUser.id) ? 'currentColor' : 'none'} />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-foreground hover:text-primary">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-foreground hover:text-primary"
+                          onClick={() => navigate(`/post/${post.id}`)}
+                        >
                           <MessageCircle size={20} />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-foreground hover:text-primary">
@@ -199,9 +254,12 @@ const Home = () => {
 
                     {/* Comments */}
                     {post.comments.length > 0 && (
-                      <p className="text-sm text-muted-foreground mt-2">
+                      <button 
+                        className="text-sm text-muted-foreground mt-2 hover:opacity-80 transition-opacity"
+                        onClick={() => navigate(`/post/${post.id}`)}
+                      >
                         View all {post.comments.length} comments
-                      </p>
+                      </button>
                     )}
                   </div>
                 </CardContent>
