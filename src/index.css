@@ -2,41 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Montage App Design System - Instagram-inspired with vibrant gradients */
 
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 220 8.9% 46.1%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 220 8.9% 46.1%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 220 8.9% 46.1%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Montage Brand Colors - Orange to Pink Gradient Palette */
+    --primary: 24 95% 53%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 24 95% 63%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 340 75% 65%;
+    --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 14.3% 95.9%;
+    --muted-foreground: 220 8.9% 46.1%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 20 14.3% 4.1%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 24 95% 53%;
 
-    --radius: 0.5rem;
+    --radius: 1rem;
+
+    /* Montage Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(24 95% 53%), hsl(340 75% 65%));
+    --gradient-secondary: linear-gradient(135deg, hsl(340 75% 65%), hsl(280 100% 70%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 14.3% 95.9%));
+    --gradient-story: linear-gradient(45deg, hsl(24 95% 53%), hsl(340 75% 65%), hsl(280 100% 70%));
+    
+    /* Shadows and Effects */
+    --shadow-glow: 0 0 40px hsl(24 95% 53% / 0.3);
+    --shadow-card: 0 4px 24px hsl(220 8.9% 46.1% / 0.1);
+    --shadow-elevated: 0 8px 32px hsl(220 8.9% 46.1% / 0.15);
+    
+    /* Animation Timings */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
     --sidebar-background: 0 0% 98%;
 
