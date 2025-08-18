@@ -180,6 +180,25 @@ export const saveStory = (story: Story): void => {
   saveToStorage(STORAGE_KEYS.STORIES, stories);
 };
 
+export const viewStory = (storyId: string, userId: string): void => {
+  const stories = getFromStorage<Story>(STORAGE_KEYS.STORIES);
+  const storyIndex = stories.findIndex(s => s.id === storyId);
+  if (storyIndex !== -1 && !stories[storyIndex].views.includes(userId)) {
+    stories[storyIndex].views.push(userId);
+    saveToStorage(STORAGE_KEYS.STORIES, stories);
+  }
+};
+
+export const getUserStories = (userId: string): Story[] => {
+  const stories = getStories();
+  return stories.filter(story => story.userId === userId);
+};
+
+export const hasUnviewedStories = (userId: string, currentUserId: string): boolean => {
+  const userStories = getUserStories(userId);
+  return userStories.some(story => !story.views.includes(currentUserId));
+};
+
 // Conversations management
 export const getConversations = (userId: string): Conversation[] => {
   const conversations = getFromStorage<Conversation>(STORAGE_KEYS.CONVERSATIONS);

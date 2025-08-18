@@ -4,7 +4,7 @@ import { ArrowLeft, Plus, X, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { GradientButton } from "@/components/ui/button-variants";
-import { getCurrentUser, getStories, saveStory, generateId, generateStoryExpiration, getUserById, Story } from "@/lib/storage";
+import { getCurrentUser, getStories, saveStory, generateId, generateStoryExpiration, getUserById, getUserStories, hasUnviewedStories, Story } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import StoryEditor from "@/components/StoryEditor";
@@ -191,8 +191,39 @@ const Stories = () => {
         />
       )}
 
-      {/* Stories Grid */}
-      <div className="p-4">
+      {/* Stories Section */}
+      <div className="px-4 py-6">
+        {/* Your Stories */}
+        {currentUser && getUserStories(currentUser.id).length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-foreground mb-4">Your Stories</h2>
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide">
+              {getUserStories(currentUser.id).map((story, index) => (
+                <button
+                  key={story.id}
+                  className="flex-shrink-0 hover:opacity-80 transition-opacity"
+                  onClick={() => navigate(`/story/${currentUser.id}/${index}`)}
+                >
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-primary">
+                    {story.image ? (
+                      <img src={story.image} alt="Your story" className="w-full h-full object-cover" />
+                    ) : story.video ? (
+                      <video src={story.video} className="w-full h-full object-cover" muted />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-subtle flex items-center justify-center">
+                        <span className="text-xs text-center text-foreground font-medium px-2">
+                          {story.content.slice(0, 20)}...
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* All Stories Grid */}
         {Object.keys(groupedStories).length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
             <div className="w-20 h-20 bg-gradient-primary rounded-full flex items-center justify-center mb-4 shadow-glow">
@@ -211,70 +242,62 @@ const Stories = () => {
           </div>
         ) : (
           <div className="space-y-6">
+            <h2 className="text-lg font-semibold text-foreground">All Stories</h2>
             {Object.entries(groupedStories).map(([userId, userStories]) => {
               const user = getUserById(userId);
               if (!user) return null;
 
+              const hasUnviewed = hasUnviewedStories(userId, currentUser.id);
+
               return (
                 <div key={userId} className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <Avatar className="w-12 h-12 ring-2 ring-primary">
+                  <button
+                    className="flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity"
+                    onClick={() => navigate(`/story/${userId}/0`)}
+                  >
+                    <div className={`p-0.5 rounded-full ${hasUnviewed ? 'bg-gradient-story' : 'bg-muted'}`}>
+                      <Avatar className="w-14 h-14 ring-2 ring-background">
                         <AvatarImage src={user.avatar} />
                         <AvatarFallback className="bg-gradient-primary text-primary-foreground font-bold">
                           {user.fullName.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="absolute inset-0 w-12 h-12 rounded-full bg-gradient-story p-0.5">
-                        <div className="w-full h-full rounded-full bg-transparent"></div>
-                      </div>
                     </div>
                     <div>
                       <p className="font-semibold text-foreground">{user.fullName}</p>
                       <p className="text-sm text-muted-foreground">
-                        {userStories.length} {userStories.length === 1 ? 'story' : 'stories'}
+                        @{user.username} • {userStories.length} {userStories.length === 1 ? 'story' : 'stories'}
                       </p>
                     </div>
-                  </div>
+                  </button>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    {userStories.map((story, index) => (
-                      <Card 
-                        key={story.id} 
-                        className="bg-card border-border overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                  <div className="grid grid-cols-3 gap-1 ml-16">
+                    {userStories.slice(0, 6).map((story, index) => (
+                      <button
+                        key={story.id}
+                        className="aspect-square overflow-hidden rounded-lg border border-border hover:opacity-80 transition-opacity"
                         onClick={() => navigate(`/story/${userId}/${index}`)}
                       >
-                        <CardContent className="p-0">
-                          <div className="aspect-[3/4] relative">
-                            {story.image ? (
-                              <img 
-                                src={story.image} 
-                                alt="Story"
-                                className="w-full h-full object-cover"
-                              />
-                            ) : story.video ? (
-                              <video 
-                                src={story.video} 
-                                className="w-full h-full object-cover"
-                                muted
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gradient-subtle flex items-center justify-center p-4">
-                                <p className="text-sm text-center text-foreground line-clamp-6">
-                                  {story.content}
-                                </p>
-                              </div>
-                            )}
-                            {story.content && (story.image || story.video) && (
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/50 p-2">
-                                <p className="text-white text-xs line-clamp-2">
-                                  {story.content}
-                                </p>
-                              </div>
-                            )}
+                        {story.image ? (
+                          <img 
+                            src={story.image} 
+                            alt="Story preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : story.video ? (
+                          <video 
+                            src={story.video} 
+                            className="w-full h-full object-cover"
+                            muted
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-subtle flex items-center justify-center p-2">
+                            <p className="text-xs text-center text-foreground line-clamp-3">
+                              {story.content}
+                            </p>
                           </div>
-                        </CardContent>
-                      </Card>
+                        )}
+                      </button>
                     ))}
                   </div>
                 </div>

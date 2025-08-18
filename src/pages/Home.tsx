@@ -3,7 +3,7 @@ import { Plus, Heart, MessageCircle, Send, Bookmark } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { getCurrentUser, getPosts, getUsers, togglePostLike, Post, User } from "@/lib/storage";
+import { getCurrentUser, getPosts, getUsers, togglePostLike, getUserStories, hasUnviewedStories, Post, User } from "@/lib/storage";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -11,6 +11,7 @@ const Home = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [usersWithStories, setUsersWithStories] = useState<User[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -23,7 +24,15 @@ const Home = () => {
     
     setCurrentUser(user);
     setPosts(getPosts());
-    setUsers(getUsers());
+    const allUsers = getUsers();
+    setUsers(allUsers);
+    
+    // Filter users who have stories
+    const usersWithActiveStories = allUsers.filter(u => {
+      const userStories = getUserStories(u.id);
+      return userStories.length > 0;
+    });
+    setUsersWithStories(usersWithActiveStories);
   }, [navigate]);
 
   const getUserById = (userId: string) => {
@@ -93,46 +102,67 @@ const Home = () => {
 
       {/* Stories Row */}
       <div className="border-b border-border py-4">
-        <div className="flex items-center gap-3 px-4 overflow-x-auto">
+        <div className="flex items-center gap-4 px-4 overflow-x-auto scrollbar-hide">
           {/* Your Story */}
           <button 
             className="flex flex-col items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
             onClick={() => navigate("/stories")}
           >
             <div className="relative">
-              <Avatar className="w-16 h-16 ring-2 ring-muted">
-                <AvatarImage src={currentUser.avatar} />
-                <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
-                  {currentUser.fullName.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
-                <Plus size={12} className="text-primary-foreground" />
-              </div>
+              {getUserStories(currentUser.id).length > 0 ? (
+                <div className={`p-0.5 rounded-full ${hasUnviewedStories(currentUser.id, currentUser.id) ? 'bg-gradient-story' : 'bg-muted'}`}>
+                  <Avatar className="w-16 h-16 ring-2 ring-background">
+                    <AvatarImage src={currentUser.avatar} />
+                    <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
+                      {currentUser.fullName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Avatar className="w-16 h-16 ring-2 ring-muted">
+                    <AvatarImage src={currentUser.avatar} />
+                    <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
+                      {currentUser.fullName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
+                    <Plus size={12} className="text-primary-foreground" />
+                  </div>
+                </div>
+              )}
             </div>
-            <span className="text-xs text-foreground font-medium">Your story</span>
+            <span className="text-xs text-foreground font-medium max-w-[4.5rem] truncate">
+              {getUserStories(currentUser.id).length > 0 ? currentUser.username : "Your story"}
+            </span>
           </button>
 
           {/* Other Users' Stories */}
-          {users.filter(user => user.id !== currentUser.id).map(user => (
-            <button
-              key={user.id} 
-              className="flex flex-col items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
-              onClick={() => navigate(`/story/${user.id}/0`)}
-            >
-              <div className="p-0.5 bg-gradient-story rounded-full">
-                <Avatar className="w-16 h-16 ring-2 ring-background">
-                  <AvatarImage src={user.avatar} />
-                  <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
-                    {user.fullName.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-              <span className="text-xs text-foreground font-medium truncate max-w-[4rem]">
-                {user.username}
-              </span>
-            </button>
-          ))}
+          {usersWithStories
+            .filter(user => user.id !== currentUser.id)
+            .map(user => {
+              const hasUnviewed = hasUnviewedStories(user.id, currentUser.id);
+              return (
+                <button
+                  key={user.id} 
+                  className="flex flex-col items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
+                  onClick={() => navigate(`/story/${user.id}/0`)}
+                >
+                  <div className={`p-0.5 rounded-full ${hasUnviewed ? 'bg-gradient-story' : 'bg-muted'}`}>
+                    <Avatar className="w-16 h-16 ring-2 ring-background">
+                      <AvatarImage src={user.avatar} />
+                      <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
+                        {user.fullName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                  <span className="text-xs text-foreground font-medium truncate max-w-[4.5rem]">
+                    {user.username}
+                  </span>
+                </button>
+              );
+            })
+          }
         </div>
       </div>
 

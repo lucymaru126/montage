@@ -10,7 +10,7 @@ import {
   getCurrentUser, 
   getStories, 
   getUserById, 
-  addStoryView,
+  viewStory,
   toggleStoryLike,
   addStoryReply,
   Story, 
@@ -54,7 +54,7 @@ const StoryViewer = () => {
         setStoryUser(getUserById(userId));
         
         // Add view
-        addStoryView(userStories[index].id, user.id);
+        viewStory(userStories[index].id, user.id);
       }
     }
   }, [userId, storyIndex, navigate]);
@@ -87,7 +87,7 @@ const StoryViewer = () => {
       setProgress(0);
       
       if (currentUser) {
-        addStoryView(stories[nextIndex].id, currentUser.id);
+        viewStory(stories[nextIndex].id, currentUser.id);
       }
     } else {
       navigate("/stories");
