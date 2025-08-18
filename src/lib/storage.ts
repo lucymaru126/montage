@@ -11,6 +11,9 @@ export interface User {
   posts: string[];
   stories: string[];
   createdAt: string;
+  isVerified: boolean;
+  isAdmin: boolean;
+  isBanned: boolean;
 }
 
 export interface Post {
@@ -182,6 +185,87 @@ export const saveConversation = (conversation: Conversation): void => {
   }
   
   saveToStorage(STORAGE_KEYS.CONVERSATIONS, conversations);
+};
+
+// Follow/Unfollow functions
+export const followUser = (currentUserId: string, targetUserId: string): void => {
+  const users = getUsers();
+  const currentUserIndex = users.findIndex(u => u.id === currentUserId);
+  const targetUserIndex = users.findIndex(u => u.id === targetUserId);
+  
+  if (currentUserIndex >= 0 && targetUserIndex >= 0) {
+    if (!users[currentUserIndex].following.includes(targetUserId)) {
+      users[currentUserIndex].following.push(targetUserId);
+      users[targetUserIndex].followers.push(currentUserId);
+      saveToStorage(STORAGE_KEYS.USERS, users);
+      
+      // Update current user in session if it's the current user
+      const currentUser = getCurrentUser();
+      if (currentUser && currentUser.id === currentUserId) {
+        setCurrentUser(users[currentUserIndex]);
+      }
+    }
+  }
+};
+
+export const unfollowUser = (currentUserId: string, targetUserId: string): void => {
+  const users = getUsers();
+  const currentUserIndex = users.findIndex(u => u.id === currentUserId);
+  const targetUserIndex = users.findIndex(u => u.id === targetUserId);
+  
+  if (currentUserIndex >= 0 && targetUserIndex >= 0) {
+    users[currentUserIndex].following = users[currentUserIndex].following.filter(id => id !== targetUserId);
+    users[targetUserIndex].followers = users[targetUserIndex].followers.filter(id => id !== currentUserId);
+    saveToStorage(STORAGE_KEYS.USERS, users);
+    
+    // Update current user in session if it's the current user
+    const currentUser = getCurrentUser();
+    if (currentUser && currentUser.id === currentUserId) {
+      setCurrentUser(users[currentUserIndex]);
+    }
+  }
+};
+
+// Admin functions
+export const banUser = (userId: string): void => {
+  const users = getUsers();
+  const userIndex = users.findIndex(u => u.id === userId);
+  if (userIndex >= 0) {
+    users[userIndex].isBanned = true;
+    saveToStorage(STORAGE_KEYS.USERS, users);
+  }
+};
+
+export const verifyUser = (userId: string): void => {
+  const users = getUsers();
+  const userIndex = users.findIndex(u => u.id === userId);
+  if (userIndex >= 0) {
+    users[userIndex].isVerified = true;
+    saveToStorage(STORAGE_KEYS.USERS, users);
+  }
+};
+
+export const createAdminUser = (): void => {
+  const existingAdmin = getUserByUsername('montage');
+  if (!existingAdmin) {
+    const adminUser: User = {
+      id: 'admin-montage',
+      username: 'montage',
+      email: 'admin@montage.com',
+      fullName: 'Montage Official',
+      bio: 'Official Montage account 📱✨',
+      avatar: '',
+      followers: [],
+      following: [],
+      posts: [],
+      stories: [],
+      createdAt: new Date().toISOString(),
+      isVerified: true,
+      isAdmin: true,
+      isBanned: false
+    };
+    saveUser(adminUser);
+  }
 };
 
 // Utility functions

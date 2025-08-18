@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { GradientButton } from "@/components/ui/button-variants";
 import { Card, CardContent } from "@/components/ui/card";
-import { User, saveUser, setCurrentUser, getUserByUsername, generateId } from "@/lib/storage";
+import { User, saveUser, setCurrentUser, getUserByUsername, generateId, createAdminUser } from "@/lib/storage";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -20,13 +20,38 @@ const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Create admin user on component mount
+  useState(() => {
+    createAdminUser();
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (isLogin) {
-      // Login logic - just check if username exists
+      // Login logic
       const existingUser = getUserByUsername(formData.username);
       if (existingUser) {
+        // Check if user is banned
+        if (existingUser.isBanned) {
+          toast({
+            title: "Account Banned",
+            description: "Your account has been banned.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Simple password check for admin
+        if (existingUser.username === 'montage' && formData.password !== 'admin123!') {
+          toast({
+            title: "Error",
+            description: "Invalid password.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         setCurrentUser(existingUser);
         toast({
           title: "Welcome back!",
@@ -73,7 +98,10 @@ const Auth = () => {
         following: [],
         posts: [],
         stories: [],
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        isVerified: false,
+        isAdmin: false,
+        isBanned: false
       };
 
       saveUser(newUser);

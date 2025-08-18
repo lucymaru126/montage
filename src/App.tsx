@@ -11,6 +11,8 @@ import Create from "./pages/Create";
 import Profile from "./pages/Profile";
 import Messages from "./pages/Messages";
 import Activity from "./pages/Activity";
+import Stories from "./pages/Stories";
+import Settings from "./pages/Settings";
 import BottomNav from "./components/BottomNav";
 import NotFound from "./pages/NotFound";
 
@@ -31,6 +33,8 @@ const AppLayout = () => {
         <Route path="/profile" element={<Profile />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/activity" element={<Activity />} />
+        <Route path="/stories" element={<Stories />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       {showBottomNav && <BottomNav />}

@@ -110,6 +110,7 @@ const Profile = () => {
             <Button 
               variant="ghost" 
               size="icon"
+              onClick={() => navigate("/settings")}
               className="text-foreground hover:text-primary"
             >
               <Settings size={20} />
