@@ -9,62 +9,78 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { GradientButton } from "@/components/ui/button-variants";
-import { getCurrentUser, saveUser, getPosts, logoutUser, User, Post } from "@/lib/storage";
+import { useAuth } from "@/hooks/useAuth";
+import { updateProfile, getPosts, type Profile as ProfileType, type Post } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 
 const Profile = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user, profile, loading } = useAuth();
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editForm, setEditForm] = useState({
-    fullName: "",
+    full_name: "",
     username: "", 
     bio: "",
-    avatar: ""
+    avatar_url: ""
   });
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) {
+    if (!loading && !user) {
       navigate("/auth");
       return;
     }
     
-    setCurrentUser(user);
-    setEditForm({
-      fullName: user.fullName,
-      username: user.username,
-      bio: user.bio,
-      avatar: user.avatar
-    });
+    if (profile) {
+      setEditForm({
+        full_name: profile.full_name || "",
+        username: profile.username || "",
+        bio: profile.bio || "",
+        avatar_url: profile.avatar_url || ""
+      });
 
-    // Get user's posts
-    const allPosts = getPosts();
-    const myPosts = allPosts.filter(post => post.userId === user.id);
-    setUserPosts(myPosts);
-  }, [navigate]);
+      // Get user's posts
+      loadUserPosts();
+    }
+  }, [loading, user, profile, navigate]);
 
-  const handleSaveProfile = () => {
-    if (!currentUser) return;
-
-    const updatedUser: User = {
-      ...currentUser,
-      fullName: editForm.fullName,
-      username: editForm.username,
-      bio: editForm.bio,
-      avatar: editForm.avatar
-    };
-
-    saveUser(updatedUser);
-    setCurrentUser(updatedUser);
-    setIsEditingProfile(false);
+  const loadUserPosts = async () => {
+    if (!user) return;
     
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been updated successfully.",
-    });
+    try {
+      const allPosts = await getPosts();
+      const myPosts = allPosts.filter(post => post.user_id === user.id);
+      setUserPosts(myPosts);
+    } catch (error) {
+      console.error('Error loading posts:', error);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    try {
+      await updateProfile(user.id, {
+        full_name: editForm.full_name,
+        username: editForm.username,
+        bio: editForm.bio,
+        avatar_url: editForm.avatar_url
+      });
+      
+      setIsEditingProfile(false);
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update profile. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,19 +92,30 @@ const Profile = () => {
       if (event.target?.result) {
         setEditForm(prev => ({
           ...prev,
-          avatar: event.target!.result as string
+          avatar_url: event.target!.result as string
         }));
       }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleLogout = () => {
-    logoutUser();
-    navigate("/auth");
+  const handleLogout = async () => {
+    try {
+      const { signOut } = useAuth();
+      await signOut();
+      navigate("/auth");
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
-  if (!currentUser) return null;
+  if (loading || !user || !profile) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -106,7 +133,7 @@ const Profile = () => {
                 <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </Button>
-            <h1 className="text-lg font-semibold text-foreground">@{currentUser.username}</h1>
+            <h1 className="text-lg font-semibold text-foreground">@{profile.username}</h1>
           </div>
           <Button 
             variant="ghost" 
@@ -128,9 +155,9 @@ const Profile = () => {
         <div className="px-4 py-4">
           <div className="flex items-center gap-6 mb-4">
             <Avatar className="w-20 h-20">
-              <AvatarImage src={currentUser.avatar} />
+              <AvatarImage src={profile.avatar_url || undefined} />
               <AvatarFallback className="bg-gradient-primary text-primary-foreground text-xl font-bold">
-                {currentUser.fullName.charAt(0).toUpperCase()}
+                {profile.full_name?.charAt(0).toUpperCase() || profile.username.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             
@@ -140,27 +167,23 @@ const Profile = () => {
                 <p className="text-sm text-muted-foreground">Posts</p>
               </div>
               <div>
-                <p className="text-lg font-bold text-foreground">{currentUser.followers.length}M</p>
+                <p className="text-lg font-bold text-foreground">0</p>
                 <p className="text-sm text-muted-foreground">Followers</p>
               </div>
               <div>
-                <p className="text-lg font-bold text-foreground">{currentUser.following.length}</p>
+                <p className="text-lg font-bold text-foreground">0</p>
                 <p className="text-sm text-muted-foreground">Following</p>
               </div>
             </div>
           </div>
 
           <div className="mb-4">
-            <h2 className="text-sm font-bold text-foreground">{currentUser.fullName}</h2>
-            <p className="text-xs text-muted-foreground mb-1">{currentUser.bio || "Twice K-Pop Idol Group Member"}</p>
-            {currentUser.bio && (
-              <p className="text-sm text-foreground">{currentUser.bio}</p>
+            <h2 className="text-sm font-bold text-foreground">{profile.full_name || profile.username}</h2>
+            {profile.bio && (
+              <p className="text-sm text-foreground">{profile.bio}</p>
             )}
           </div>
 
-          <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 rounded-lg mb-4">
-            Follow
-          </Button>
 
           <Dialog open={isEditingProfile} onOpenChange={setIsEditingProfile}>
             <DialogTrigger asChild>
@@ -176,9 +199,9 @@ const Profile = () => {
                 <div className="space-y-4">
                   <div className="flex flex-col items-center gap-4">
                     <Avatar className="w-20 h-20">
-                      <AvatarImage src={editForm.avatar} />
+                      <AvatarImage src={editForm.avatar_url || undefined} />
                       <AvatarFallback className="bg-gradient-primary text-primary-foreground text-lg font-bold">
-                        {editForm.fullName.charAt(0).toUpperCase()}
+                        {editForm.full_name?.charAt(0).toUpperCase() || editForm.username.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <label className="cursor-pointer">
@@ -197,8 +220,8 @@ const Profile = () => {
                   <div className="space-y-3">
                     <Input
                       placeholder="Full Name"
-                      value={editForm.fullName}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, fullName: e.target.value }))}
+                      value={editForm.full_name}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, full_name: e.target.value }))}
                     />
                     <Input
                       placeholder="Username"
@@ -270,20 +293,20 @@ const Profile = () => {
               <div className="grid grid-cols-3 gap-0.5 px-4">
                 {userPosts.map(post => (
                   <div key={post.id} className="aspect-square bg-muted overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
-                    {post.images.length > 0 ? (
-                      <img 
-                        src={post.images[0]} 
-                        alt="Post"
-                        className="w-full h-full object-cover"
-                        onClick={() => navigate(`/post/${post.id}`)}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-subtle">
-                        <p className="text-xs text-center text-muted-foreground p-2 line-clamp-3">
-                          {post.content}
-                        </p>
-                      </div>
-                    )}
+                     {post.images && post.images.length > 0 ? (
+                       <img 
+                         src={post.images[0]} 
+                         alt="Post"
+                         className="w-full h-full object-cover"
+                         onClick={() => navigate(`/post/${post.id}`)}
+                       />
+                     ) : (
+                       <div className="w-full h-full flex items-center justify-center bg-gradient-subtle">
+                         <p className="text-xs text-center text-muted-foreground p-2 line-clamp-3">
+                           {post.content}
+                         </p>
+                       </div>
+                     )}
                   </div>
                 ))}
               </div>
