@@ -1,213 +1,203 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Input } from "@/components/ui/input";
-import { GradientButton } from "@/components/ui/button-variants";
-import { Card, CardContent } from "@/components/ui/card";
-import { User, saveUser, setCurrentUser, getUserByUsername, generateId, createAdminUser } from "@/lib/storage";
-import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Session } from '@supabase/supabase-js';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { Eye, EyeOff } from 'lucide-react';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [formData, setFormData] = useState({
-    username: "",
-    email: "",
-    fullName: "",
-    password: ""
+    email: '',
+    password: '',
+    username: '',
+    fullName: ''
   });
   
   const navigate = useNavigate();
-  const { toast } = useToast();
 
-  // Create admin user on component mount
-  useState(() => {
-    createAdminUser();
-  });
+  useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        // Redirect authenticated users to home
+        if (session?.user) {
+          navigate('/');
+        }
+      }
+    );
 
-  const handleSubmit = (e: React.FormEvent) => {
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        navigate('/');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (isLogin) {
-      // Login logic
-      const existingUser = getUserByUsername(formData.username);
-      if (existingUser) {
-        // Check if user is banned
-        if (existingUser.isBanned) {
-          toast({
-            title: "Account Banned",
-            description: "Your account has been banned.",
-            variant: "destructive",
-          });
-          return;
-        }
+    setLoading(true);
 
-        // Simple password check for admin
-        if (existingUser.username === 'montage' && formData.password !== 'admin123!') {
-          toast({
-            title: "Error",
-            description: "Invalid password.",
-            variant: "destructive",
-          });
-          return;
-        }
-
-        setCurrentUser(existingUser);
-        toast({
-          title: "Welcome back!",
-          description: `Logged in as ${existingUser.fullName || existingUser.username}`,
+    try {
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
         });
-        navigate("/");
+
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('Welcome back!');
+        }
       } else {
-        toast({
-          title: "User not found",
-          description: "Please check your username or create a new account.",
-          variant: "destructive"
+        const { error } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+            data: {
+              username: formData.username,
+              full_name: formData.fullName,
+            }
+          }
         });
-      }
-    } else {
-      // Signup logic - create new user
-      if (!formData.username || !formData.email || !formData.fullName) {
-        toast({
-          title: "Missing information",
-          description: "Please fill in all required fields.",
-          variant: "destructive"
-        });
-        return;
-      }
 
-      // Check if username already exists
-      if (getUserByUsername(formData.username)) {
-        toast({
-          title: "Username taken",
-          description: "Please choose a different username.",
-          variant: "destructive"
-        });
-        return;
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('Account created! Please check your email to verify your account.');
+        }
       }
-
-      // Create new user
-      const newUser: User = {
-        id: generateId(),
-        username: formData.username,
-        email: formData.email,
-        fullName: formData.fullName,
-        bio: "",
-        avatar: "",
-        followers: [],
-        following: [],
-        posts: [],
-        stories: [],
-        createdAt: new Date().toISOString(),
-        isVerified: false,
-        isAdmin: false,
-        isBanned: false
-      };
-
-      saveUser(newUser);
-      setCurrentUser(newUser);
-      
-      toast({
-        title: "Welcome to Montage!",
-        description: "Your account has been created successfully.",
-      });
-      
-      navigate("/");
+    } catch (error) {
+      toast.error('An unexpected error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-primary flex items-center justify-center p-4">
-      <Card className="w-full max-w-sm bg-background/95 backdrop-blur-sm shadow-elevated border-0">
-        <CardContent className="p-8">
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-primary rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-glow">
-              <span className="text-2xl font-bold text-primary-foreground">M</span>
-            </div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {isLogin ? "Welcome Back" : "Join Montage"}
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              {isLogin ? "Sign in to your account" : "Create your account"}
-            </p>
-          </div>
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <img 
+              src="/src/assets/montage-icon.png" 
+              alt="Montage" 
+              className="h-16 w-16"
+            />
+          </div>
+          <CardTitle className="text-2xl font-bold">
+            {isLogin ? 'Welcome back' : 'Create account'}
+          </CardTitle>
+          <CardDescription>
+            {isLogin 
+              ? 'Sign in to your Montage account' 
+              : 'Join Montage to share your moments'
+            }
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div>
-                <Input
-                  type="text"
-                  placeholder="Full Name"
-                  value={formData.fullName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
-                  className="h-12 rounded-lg border-input"
-                  required={!isLogin}
-                />
-              </div>
-            )}
-            
-            <div>
+            <div className="space-y-2">
               <Input
-                type="text"
-                placeholder="Username"
-                value={formData.username}
-                onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                className="h-12 rounded-lg border-input"
+                name="email"
+                type="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={handleInputChange}
                 required
               />
             </div>
-
+            
             {!isLogin && (
-              <div>
-                <Input
-                  type="email"
-                  placeholder="Email Address"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className="h-12 rounded-lg border-input"
-                  required={!isLogin}
-                />
-              </div>
+              <>
+                <div className="space-y-2">
+                  <Input
+                    name="username"
+                    type="text"
+                    placeholder="Username"
+                    value={formData.username}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Input
+                    name="fullName"
+                    type="text"
+                    placeholder="Full name"
+                    value={formData.fullName}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+              </>
             )}
-
-            <div className="relative">
+            
+            <div className="space-y-2 relative">
               <Input
-                type={showPassword ? "text" : "password"}
+                name="password"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="Password"
                 value={formData.password}
-                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                className="h-12 rounded-lg border-input pr-12"
+                onChange={handleInputChange}
+                required
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                onClick={togglePasswordVisibility}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
-
-            <GradientButton
-              type="submit"
-              variant="primary"
-              size="lg"
-              className="w-full"
+            
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={loading}
             >
-              {isLogin ? "Sign In" : "Create Account"}
-            </GradientButton>
+              {loading ? 'Please wait...' : (isLogin ? 'Sign in' : 'Create account')}
+            </Button>
           </form>
-
+          
           <div className="mt-6 text-center">
             <button
-              type="button"
               onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground"
             >
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
-              <span className="font-medium text-primary">
-                {isLogin ? "Sign up" : "Sign in"}
-              </span>
+              {isLogin 
+                ? "Don't have an account? Sign up" 
+                : 'Already have an account? Sign in'
+              }
             </button>
           </div>
         </CardContent>

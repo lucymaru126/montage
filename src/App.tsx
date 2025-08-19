@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import { AuthProvider } from "./hooks/useAuth";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import Home from "./pages/Home";
 import Search from "./pages/Search";
@@ -36,23 +38,23 @@ const AppLayout = () => {
     <>
       <Routes>
         <Route path="/auth" element={<Auth />} />
-        <Route path="/" element={<Home />} />
-        <Route path="/search" element={<Search />} />
-        <Route path="/create" element={<Create />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/messages" element={<Messages />} />
-        <Route path="/activity" element={<Activity />} />
-        <Route path="/stories" element={<Stories />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/settings/account" element={<AccountSettings />} />
-        <Route path="/settings/notifications" element={<NotificationSettings />} />
-        <Route path="/settings/privacy" element={<PrivacySettings />} />
-        <Route path="/settings/help" element={<HelpSettings />} />
-        <Route path="/user/:userId" element={<UserProfile />} />
-        <Route path="/user/:userId/:type" element={<FollowersList />} />
-        <Route path="/messages/chat/:userId" element={<Chat />} />
-        <Route path="/story/:userId/:storyIndex" element={<StoryViewer />} />
-        <Route path="/post/:postId" element={<PostViewer />} />
+        <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+        <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
+        <Route path="/create" element={<ProtectedRoute><Create /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+        <Route path="/messages/:userId" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+        <Route path="/activity" element={<ProtectedRoute><Activity /></ProtectedRoute>} />
+        <Route path="/stories" element={<ProtectedRoute><Stories /></ProtectedRoute>} />
+        <Route path="/stories/:userId" element={<ProtectedRoute><StoryViewer /></ProtectedRoute>} />
+        <Route path="/post/:postId" element={<ProtectedRoute><PostViewer /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/settings/account" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
+        <Route path="/settings/notifications" element={<ProtectedRoute><NotificationSettings /></ProtectedRoute>} />
+        <Route path="/settings/privacy" element={<ProtectedRoute><PrivacySettings /></ProtectedRoute>} />
+        <Route path="/settings/help" element={<ProtectedRoute><HelpSettings /></ProtectedRoute>} />
+        <Route path="/user/:username" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
+        <Route path="/followers/:username" element={<ProtectedRoute><FollowersList /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       {showBottomNav && <BottomNav />}
@@ -66,7 +68,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppLayout />
+        <AuthProvider>
+          <AppLayout />
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
