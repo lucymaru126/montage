@@ -3,59 +3,84 @@ import { Plus, Play, MessageCircle, Send, Bookmark, Camera, Heart } from "lucide
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { getCurrentUser, getPosts, getUsers, togglePostLike, getUserStories, hasUnviewedStories, Post, User } from "@/lib/storage";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { getPosts, likePost, unlikePost, getAllProfiles, getStories } from "@/lib/supabase";
+import { Profile, Post, Story } from "@/lib/supabase";
 
 const Home = () => {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [usersWithStories, setUsersWithStories] = useState<User[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, profile } = useAuth();
 
   useEffect(() => {
-    const user = getCurrentUser();
     if (!user) {
       navigate("/auth");
       return;
     }
     
-    setCurrentUser(user);
-    setPosts(getPosts());
-    const allUsers = getUsers();
-    setUsers(allUsers);
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [postsData, profilesData, storiesData] = await Promise.all([
+          getPosts(),
+          getAllProfiles(),
+          getStories()
+        ]);
+        
+        setPosts(postsData);
+        setProfiles(profilesData);
+        setStories(storiesData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load feed data",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    // Filter users who have stories
-    const usersWithActiveStories = allUsers.filter(u => {
-      const userStories = getUserStories(u.id);
-      return userStories.length > 0;
-    });
-    setUsersWithStories(usersWithActiveStories);
-  }, [navigate]);
+    loadData();
+  }, [user, navigate, toast]);
 
-  const getUserById = (userId: string) => {
-    return users.find(user => user.id === userId);
+  const getProfileById = (userId: string) => {
+    return profiles.find(profile => profile.user_id === userId);
   };
 
-  const handleLike = (postId: string) => {
-    if (!currentUser) return;
+  const handleLike = async (postId: string) => {
+    if (!user) return;
     
-    togglePostLike(postId, currentUser.id);
-    
-    // Update local state
-    setPosts(prevPosts => 
-      prevPosts.map(post => {
-        if (post.id === postId) {
-          const newLikes = post.likes.includes(currentUser.id)
-            ? post.likes.filter(id => id !== currentUser.id)
-            : [...post.likes, currentUser.id];
-          return { ...post, likes: newLikes };
-        }
-        return post;
-      })
-    );
+    try {
+      const post = posts.find(p => p.id === postId);
+      if (!post) return;
+      
+      const isLiked = post.post_likes?.some(like => like.user_id === user.id);
+      
+      if (isLiked) {
+        await unlikePost(postId);
+      } else {
+        await likePost(postId);
+      }
+      
+      // Refresh posts
+      const updatedPosts = await getPosts();
+      setPosts(updatedPosts);
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update like",
+        variant: "destructive"
+      });
+    }
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -69,7 +94,21 @@ const Home = () => {
     return `${Math.floor(diffInMinutes / 1440)}d`;
   };
 
-  if (!currentUser) return null;
+  if (!user || !profile || loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  const usersWithStories = profiles.filter(p => 
+    stories.some(story => story.user_id === p.user_id && new Date(story.expires_at) > new Date())
+  );
+
+  const userStories = stories.filter(story => 
+    story.user_id === user.id && new Date(story.expires_at) > new Date()
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -112,12 +151,12 @@ const Home = () => {
             onClick={() => navigate("/stories")}
           >
             <div className="relative">
-              {getUserStories(currentUser.id).length > 0 ? (
-                <div className={`p-0.5 ${hasUnviewedStories(currentUser.id, currentUser.id) ? 'bg-gradient-story' : 'bg-muted'} rounded-2xl`}>
+              {userStories.length > 0 ? (
+                <div className="p-0.5 bg-gradient-story rounded-2xl">
                   <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-background">
                     <img 
-                      src={currentUser.avatar || '/placeholder.svg'} 
-                      alt={currentUser.fullName}
+                      src={profile.avatar_url || '/placeholder.svg'} 
+                      alt={profile.full_name || 'Your story'}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -126,8 +165,8 @@ const Home = () => {
                 <div className="relative">
                   <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-muted bg-muted">
                     <img 
-                      src={currentUser.avatar || '/placeholder.svg'} 
-                      alt={currentUser.fullName}
+                      src={profile.avatar_url || '/placeholder.svg'} 
+                      alt={profile.full_name || 'Your story'}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -138,32 +177,35 @@ const Home = () => {
               )}
             </div>
             <span className="text-xs text-foreground font-medium max-w-[4.5rem] truncate font-inter">
-              {getUserStories(currentUser.id).length > 0 ? currentUser.username : "Your story"}
+              {userStories.length > 0 ? profile.username : "Your story"}
             </span>
           </button>
 
           {/* Other Users' Stories */}
           {usersWithStories
-            .filter(user => user.id !== currentUser.id)
-            .map(user => {
-              const hasUnviewed = hasUnviewedStories(user.id, currentUser.id);
+            .filter(userProfile => userProfile.user_id !== user.id)
+            .map(userProfile => {
+              const userStoriesForProfile = stories.filter(story => 
+                story.user_id === userProfile.user_id && new Date(story.expires_at) > new Date()
+              );
+              
               return (
                 <button
-                  key={user.id} 
+                  key={userProfile.user_id} 
                   className="flex flex-col items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
-                  onClick={() => navigate(`/story/${user.id}/0`)}
+                  onClick={() => navigate(`/story/${userProfile.user_id}/0`)}
                 >
-                  <div className={`p-0.5 ${hasUnviewed ? 'bg-gradient-story' : 'bg-muted'} rounded-2xl`}>
+                  <div className="p-0.5 bg-gradient-story rounded-2xl">
                     <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-background">
                       <img 
-                        src={user.avatar || '/placeholder.svg'} 
-                        alt={user.fullName}
+                        src={userProfile.avatar_url || '/placeholder.svg'} 
+                        alt={userProfile.full_name || userProfile.username}
                         className="w-full h-full object-cover"
                       />
                     </div>
                   </div>
                   <span className="text-xs text-foreground font-medium truncate max-w-[4.5rem] font-inter">
-                    {user.username}
+                    {userProfile.username}
                   </span>
                 </button>
               );
@@ -192,8 +234,11 @@ const Home = () => {
           </div>
         ) : (
           posts.map(post => {
-            const postUser = getUserById(post.userId);
-            if (!postUser) return null;
+            const postProfile = getProfileById(post.user_id);
+            if (!postProfile) return null;
+
+            const isLiked = post.post_likes?.some(like => like.user_id === user.id);
+            const likesCount = post.post_likes?.length || 0;
 
             return (
               <Card key={post.id} className="border-0 rounded-none border-b border-border shadow-none">

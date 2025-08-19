@@ -7,82 +7,115 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { GradientButton } from "@/components/ui/button-variants";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { 
-  getCurrentUser, 
-  getUserById, 
+  getProfileById, 
   getPosts, 
   followUser, 
   unfollowUser, 
-  saveUser,
-  User, 
+  getFollowers,
+  getFollowing,
+  Profile, 
   Post 
-} from "@/lib/storage";
-import { useToast } from "@/hooks/use-toast";
+} from "@/lib/supabase";
 
 const UserProfile = () => {
   const { userId } = useParams<{ userId: string }>();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [profileUser, setProfileUser] = useState<User | null>(null);
+  const [profileUser, setProfileUser] = useState<Profile | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [followers, setFollowers] = useState<any[]>([]);
+  const [following, setFollowing] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, profile } = useAuth();
 
   useEffect(() => {
-    const user = getCurrentUser();
     if (!user) {
       navigate("/auth");
       return;
     }
     
-    setCurrentUser(user);
-    
-    if (userId) {
-      const profile = getUserById(userId);
-      if (profile) {
-        setProfileUser(profile);
-        setIsFollowing(user.following.includes(userId));
+    const loadUserData = async () => {
+      if (!userId) return;
+      
+      try {
+        setLoading(true);
+        const [profileData, postsData, followersData, followingData] = await Promise.all([
+          getProfileById(userId),
+          getPosts(),
+          getFollowers(userId),
+          getFollowing(userId)
+        ]);
         
-        // Get user's posts
-        const allPosts = getPosts();
-        const myPosts = allPosts.filter(post => post.userId === userId);
-        setUserPosts(myPosts);
+        if (profileData) {
+          setProfileUser(profileData);
+          
+          // Filter posts for this user
+          const myPosts = postsData.filter(post => post.user_id === userId);
+          setUserPosts(myPosts);
+          
+          setFollowers(followersData);
+          setFollowing(followingData);
+          
+          // Check if current user is following this profile
+          const isCurrentlyFollowing = followersData.some(f => f.follower_id === user.id);
+          setIsFollowing(isCurrentlyFollowing);
+        }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load user profile",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
       }
-    }
-  }, [userId, navigate]);
-
-  const handleFollowToggle = () => {
-    if (!currentUser || !profileUser) return;
-
-    if (isFollowing) {
-      unfollowUser(currentUser.id, profileUser.id);
-      setIsFollowing(false);
-      toast({
-        title: "Unfollowed",
-        description: `You unfollowed @${profileUser.username}`,
-      });
-    } else {
-      followUser(currentUser.id, profileUser.id);
-      setIsFollowing(true);
-      toast({
-        title: "Following",
-        description: `You are now following @${profileUser.username}`,
-      });
-    }
+    };
     
-    // Update current user state
-    const updatedUser = getCurrentUser();
-    if (updatedUser) {
-      setCurrentUser(updatedUser);
+    loadUserData();
+  }, [userId, user, navigate, toast]);
+
+  const handleFollowToggle = async () => {
+    if (!user || !profileUser) return;
+
+    try {
+      if (isFollowing) {
+        await unfollowUser(profileUser.user_id);
+        setIsFollowing(false);
+        setFollowers(prev => prev.filter(f => f.follower_id !== user.id));
+        toast({
+          title: "Unfollowed",
+          description: `You unfollowed @${profileUser.username}`,
+        });
+      } else {
+        await followUser(profileUser.user_id);
+        setIsFollowing(true);
+        setFollowers(prev => [...prev, { follower_id: user.id }]);
+        toast({
+          title: "Following",
+          description: `You are now following @${profileUser.username}`,
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update follow status",
+        variant: "destructive"
+      });
     }
   };
 
   const handleMessage = () => {
     // Navigate to messages with user parameter
-    navigate(`/messages/chat/${profileUser?.id}`);
+    navigate(`/messages/chat/${profileUser?.user_id}`);
   };
 
-  if (!currentUser || !profileUser) {
+  if (!user || !profile || loading || !profileUser) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>
@@ -90,7 +123,7 @@ const UserProfile = () => {
     );
   }
 
-  const isOwnProfile = currentUser.id === profileUser.id;
+  const isOwnProfile = user.id === profileUser.user_id;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -108,7 +141,7 @@ const UserProfile = () => {
             </Button>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-semibold text-foreground">{profileUser.username}</h1>
-              {profileUser.isVerified && (
+              {profileUser.is_verified && (
                 <Badge variant="secondary" className="bg-primary text-primary-foreground h-5 w-5 p-0 rounded-full flex items-center justify-center">
                   ✓
                 </Badge>
@@ -125,133 +158,145 @@ const UserProfile = () => {
         </div>
       </header>
 
-      <div className="px-4 py-6 space-y-6">
-        {/* Profile Info */}
-        <div className="flex items-start gap-4">
+      {/* Profile Header - Instagram Style */}
+      <div className="text-center py-8 space-y-4">
+        {/* Profile Picture */}
+        <div className="flex justify-center">
           <div className="relative">
-            <Avatar className="w-24 h-24 ring-4 ring-background shadow-elevated">
-              <AvatarImage src={profileUser.avatar} />
-              <AvatarFallback className="bg-gradient-primary text-primary-foreground text-2xl font-bold">
-                {profileUser.fullName.charAt(0).toUpperCase()}
+            <Avatar className="w-32 h-32">
+              <AvatarImage src={profileUser.avatar_url} className="object-cover" />
+              <AvatarFallback className="bg-gradient-primary text-primary-foreground text-4xl font-bold">
+                {(profileUser.full_name || profileUser.username).charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            {/* Story Ring for demonstration */}
-            <div className="absolute inset-0 w-24 h-24 rounded-full bg-gradient-story p-0.5">
-              <div className="w-full h-full rounded-full bg-background"></div>
-            </div>
-          </div>
-
-          <div className="flex-1 space-y-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-foreground">{profileUser.fullName}</h2>
-                {profileUser.isVerified && (
-                  <Badge variant="secondary" className="bg-primary text-primary-foreground h-6 w-6 p-0 rounded-full flex items-center justify-center">
-                    ✓
-                  </Badge>
-                )}
-              </div>
-              <p className="text-muted-foreground">@{profileUser.username}</p>
-            </div>
-            
-            {profileUser.bio && (
-              <p className="text-sm text-foreground">{profileUser.bio}</p>
-            )}
-
-            <div className="flex items-center gap-6 text-sm">
-              <button 
-                className="text-center hover:opacity-80 transition-opacity"
-                onClick={() => navigate(`/user/${profileUser.id}/followers`)}
-              >
-                <p className="font-semibold text-foreground">{profileUser.followers.length}</p>
-                <p className="text-muted-foreground">Followers</p>
-              </button>
-              <button 
-                className="text-center hover:opacity-80 transition-opacity"
-                onClick={() => navigate(`/user/${profileUser.id}/following`)}
-              >
-                <p className="font-semibold text-foreground">{profileUser.following.length}</p>
-                <p className="text-muted-foreground">Following</p>
-              </button>
-              <div className="text-center">
-                <p className="font-semibold text-foreground">{userPosts.length}</p>
-                <p className="text-muted-foreground">Posts</p>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              {isOwnProfile ? (
-                <Button 
-                  variant="outline" 
-                  className="flex-1 rounded-lg"
-                  onClick={() => navigate("/profile")}
-                >
-                  Edit Profile
-                </Button>
-              ) : (
-                <>
-                  <GradientButton
-                    variant={isFollowing ? "secondary" : "primary"}
-                    onClick={handleFollowToggle}
-                    className="flex-1"
-                  >
-                    {isFollowing ? "Following" : "Follow"}
-                  </GradientButton>
-                  <Button 
-                    variant="outline" 
-                    className="flex-1 rounded-lg"
-                    onClick={handleMessage}
-                  >
-                    <MessageCircle size={16} className="mr-2" />
-                    Message
-                  </Button>
-                </>
-              )}
-            </div>
           </div>
         </div>
 
-        {/* Content Tabs */}
+        {/* Username and Verification */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <h1 className="text-2xl font-bold text-foreground font-inter">{profileUser.username}</h1>
+            {profileUser.is_verified && (
+              <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                <span className="text-primary-foreground text-sm font-bold">✓</span>
+              </div>
+            )}
+          </div>
+          {profileUser.full_name && (
+            <p className="text-muted-foreground font-medium">{profileUser.full_name}</p>
+          )}
+        </div>
+
+        {/* Stats */}
+        <div className="flex justify-center gap-8 py-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-foreground">{userPosts.length}</div>
+            <div className="text-sm text-muted-foreground font-medium">Posts</div>
+          </div>
+          <button 
+            className="text-center hover:opacity-80 transition-opacity"
+            onClick={() => navigate(`/user/${profileUser.user_id}/followers`)}
+          >
+            <div className="text-2xl font-bold text-foreground">{followers.length}</div>
+            <div className="text-sm text-muted-foreground font-medium">Followers</div>
+          </button>
+          <button 
+            className="text-center hover:opacity-80 transition-opacity"
+            onClick={() => navigate(`/user/${profileUser.user_id}/following`)}
+          >
+            <div className="text-2xl font-bold text-foreground">{following.length}</div>
+            <div className="text-sm text-muted-foreground font-medium">Following</div>
+          </button>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="px-8 space-y-3">
+          {isOwnProfile ? (
+            <Button 
+              variant="secondary" 
+              className="w-full rounded-xl h-12 font-semibold"
+              onClick={() => navigate("/profile")}
+            >
+              Edit Profile
+            </Button>
+          ) : (
+            <div className="flex gap-3">
+              <Button
+                onClick={handleFollowToggle}
+                className={`flex-1 rounded-xl h-12 font-semibold ${
+                  isFollowing 
+                    ? 'bg-muted text-foreground hover:bg-muted/80' 
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                }`}
+              >
+                {isFollowing ? "Following" : "Follow"}
+              </Button>
+              <Button 
+                variant="secondary" 
+                className="flex-1 rounded-xl h-12 font-semibold"
+                onClick={handleMessage}
+              >
+                Message
+              </Button>
+            </div>
+          )}
+          
+          {profileUser.bio && (
+            <p className="text-sm text-foreground text-center px-4 leading-relaxed">
+              {profileUser.bio}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Content Tabs */}
+      <div className="border-t border-border">
         <Tabs defaultValue="posts" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-muted rounded-full p-1">
-            <TabsTrigger value="posts" className="flex items-center gap-2 rounded-full">
-              <Grid size={16} />
-              Posts
+          <TabsList className="grid w-full grid-cols-3 bg-transparent border-b-0 h-auto p-0">
+            <TabsTrigger 
+              value="posts" 
+              className="flex items-center justify-center gap-2 py-4 border-b-2 border-transparent data-[state=active]:border-foreground rounded-none bg-transparent"
+            >
+              <Grid size={20} />
             </TabsTrigger>
-            <TabsTrigger value="saved" className="flex items-center gap-2 rounded-full">
-              <Bookmark size={16} />
-              Saved
+            <TabsTrigger 
+              value="saved" 
+              className="flex items-center justify-center gap-2 py-4 border-b-2 border-transparent data-[state=active]:border-foreground rounded-none bg-transparent"
+            >
+              <Bookmark size={20} />
             </TabsTrigger>
-            <TabsTrigger value="liked" className="flex items-center gap-2 rounded-full">
-              <Heart size={16} />
-              Liked
+            <TabsTrigger 
+              value="liked" 
+              className="flex items-center justify-center gap-2 py-4 border-b-2 border-transparent data-[state=active]:border-foreground rounded-none bg-transparent"
+            >
+              <Heart size={20} />
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="posts" className="mt-6">
+          <TabsContent value="posts" className="mt-0">
             {userPosts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <div className="w-20 h-20 bg-gradient-subtle rounded-full flex items-center justify-center mb-4">
-                  <Grid size={28} className="text-muted-foreground" />
+              <div className="flex flex-col items-center justify-center py-20">
+                <div className="w-24 h-24 border-2 border-foreground rounded-full flex items-center justify-center mb-6">
+                  <Grid size={32} className="text-foreground" />
                 </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">No posts yet</h3>
-                <p className="text-muted-foreground text-center">
-                  {isOwnProfile ? "Share your first photo or video." : "When they share photos and videos, they'll appear on their profile."}
-                </p>
+                <h3 className="text-xl font-light text-foreground mb-2">No Posts Yet</h3>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-3 gap-1 p-1">
                 {userPosts.map(post => (
-                  <div key={post.id} className="aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity">
-                    {post.images.length > 0 ? (
+                  <div 
+                    key={post.id} 
+                    className="aspect-square bg-muted cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => navigate(`/post/${post.id}`)}
+                  >
+                    {post.images && post.images.length > 0 ? (
                       <img 
                         src={post.images[0]} 
                         alt="Post"
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-subtle">
+                      <div className="w-full h-full flex items-center justify-center bg-muted">
                         <p className="text-xs text-center text-muted-foreground p-2 line-clamp-3">
                           {post.content}
                         </p>
@@ -263,27 +308,21 @@ const UserProfile = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="saved" className="mt-6">
-            <div className="flex flex-col items-center justify-center py-12">
-              <Bookmark className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                {isOwnProfile ? "Save posts for later" : "No saved posts"}
-              </h3>
-              <p className="text-muted-foreground text-center">
-                {isOwnProfile ? "Bookmark posts you want to see again." : "Only you can see what you've saved."}
-              </p>
+          <TabsContent value="saved" className="mt-0">
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-24 h-24 border-2 border-foreground rounded-full flex items-center justify-center mb-6">
+                <Bookmark size={32} className="text-foreground" />
+              </div>
+              <h3 className="text-xl font-light text-foreground mb-2">No Saved Posts</h3>
             </div>
           </TabsContent>
 
-          <TabsContent value="liked" className="mt-6">
-            <div className="flex flex-col items-center justify-center py-12">
-              <Heart className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                {isOwnProfile ? "Posts you've liked" : "No liked posts"}
-              </h3>
-              <p className="text-muted-foreground text-center">
-                {isOwnProfile ? "When you like posts, they'll appear here." : "Only you can see what you've liked."}
-              </p>
+          <TabsContent value="liked" className="mt-0">
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-24 h-24 border-2 border-foreground rounded-full flex items-center justify-center mb-6">
+                <Heart size={32} className="text-foreground" />
+              </div>
+              <h3 className="text-xl font-light text-foreground mb-2">No Liked Posts</h3>
             </div>
           </TabsContent>
         </Tabs>
