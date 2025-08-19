@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const Create = () => {
   const [content, setContent] = useState("");
-  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [isPosting, setIsPosting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -27,24 +27,16 @@ const Create = () => {
     const files = e.target.files;
     if (!files) return;
 
-    Array.from(files).forEach(file => {
-      if (selectedImages.length >= 10) {
-        toast({
-          title: "Too many images",
-          description: "You can only upload up to 10 images per post.",
-          variant: "destructive"
-        });
-        return;
-      }
+    if (selectedImages.length + files.length > 10) {
+      toast({
+        title: "Too many images",
+        description: "You can only upload up to 10 images per post.",
+        variant: "destructive"
+      });
+      return;
+    }
 
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setSelectedImages(prev => [...prev, event.target!.result as string]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    setSelectedImages(prev => [...prev, ...Array.from(files)]);
   };
 
   const removeImage = (index: number) => {
@@ -169,11 +161,11 @@ const Create = () => {
           <div className="space-y-3">
             <h3 className="font-semibold text-foreground">Selected Images</h3>
             <div className="grid grid-cols-2 gap-3">
-              {selectedImages.map((image, index) => (
+              {selectedImages.map((file, index) => (
                 <div key={index} className="relative group">
                   <div className="aspect-square rounded-lg overflow-hidden bg-muted">
                     <img 
-                      src={image} 
+                      src={URL.createObjectURL(file)} 
                       alt={`Selected ${index + 1}`}
                       className="w-full h-full object-cover"
                     />

@@ -69,10 +69,26 @@ const Stories = () => {
     if (!currentUser || (!content.trim() && !selectedImage && !selectedVideo && !textOverlay)) return;
 
     try {
+      // Convert base64 strings to File objects if needed
+      let imageFile = null;
+      let videoFile = null;
+      
+      if (selectedImage) {
+        const response = await fetch(selectedImage);
+        const blob = await response.blob();
+        imageFile = new File([blob], 'story-image.jpg', { type: 'image/jpeg' });
+      }
+      
+      if (selectedVideo) {
+        const response = await fetch(selectedVideo);
+        const blob = await response.blob();
+        videoFile = new File([blob], 'story-video.mp4', { type: 'video/mp4' });
+      }
+
       await createStory(
         content.trim() || null,
-        selectedImage || null,
-        selectedVideo || null,
+        imageFile,
+        videoFile,
         textOverlay || null,
         textColor || null
       );

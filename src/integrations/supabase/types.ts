@@ -149,6 +149,45 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          comment_id: string | null
+          created_at: string
+          from_user_id: string
+          id: string
+          is_read: boolean
+          message: string | null
+          post_id: string | null
+          story_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          comment_id?: string | null
+          created_at?: string
+          from_user_id: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          post_id?: string | null
+          story_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string | null
+          created_at?: string
+          from_user_id?: string
+          id?: string
+          is_read?: boolean
+          message?: string | null
+          post_id?: string | null
+          story_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       post_likes: {
         Row: {
           created_at: string

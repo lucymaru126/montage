@@ -73,6 +73,38 @@ export interface Message {
   profiles?: Profile;
 }
 
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: 'like' | 'comment' | 'follow' | 'story_like' | 'story_reply';
+  from_user_id: string;
+  post_id?: string;
+  story_id?: string;
+  comment_id?: string;
+  message?: string;
+  is_read: boolean;
+  created_at: string;
+  profiles?: Profile;
+}
+
+// File Upload Utilities
+export const uploadFile = async (file: File, bucket: string, folder?: string): Promise<string> => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${folder ? folder + '/' : ''}${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+  
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(fileName, file);
+
+  if (error) throw error;
+  
+  const { data: { publicUrl } } = supabase.storage
+    .from(bucket)
+    .getPublicUrl(fileName);
+    
+  return publicUrl;
+};
+
 // Auth functions
 export const getCurrentUser = async (): Promise<User | null> => {
   const { data: { user } } = await supabase.auth.getUser();
@@ -164,6 +196,25 @@ export const getAllProfiles = async (): Promise<Profile[]> => {
   return data || [];
 };
 
+export const uploadAvatar = async (file: File): Promise<string> => {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not authenticated');
+
+  return await uploadFile(file, 'avatars', user.id);
+};
+
+export const updateProfileAvatar = async (avatarUrl: string): Promise<void> => {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ avatar_url: avatarUrl })
+    .eq('user_id', user.id);
+
+  if (error) throw error;
+};
+
 // Posts functions
 export const getPosts = async (): Promise<Post[]> => {
   const { data, error } = await supabase
@@ -216,16 +267,26 @@ export const getPosts = async (): Promise<Post[]> => {
   return postsWithDetails;
 };
 
-export const createPost = async (content: string, images: string[] = []) => {
+export const createPost = async (content: string, imageFiles?: File[]): Promise<Post> => {
   const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
+
+  let imageUrls: string[] = [];
+  
+  // Upload images if provided
+  if (imageFiles && imageFiles.length > 0) {
+    const uploadPromises = imageFiles.map(file => 
+      uploadFile(file, 'posts', user.id)
+    );
+    imageUrls = await Promise.all(uploadPromises);
+  }
 
   const { data, error } = await supabase
     .from('posts')
     .insert({
       user_id: user.id,
       content,
-      images: images.length > 0 ? images : null
+      images: imageUrls.length > 0 ? imageUrls : null
     })
     .select()
     .single();
@@ -234,7 +295,7 @@ export const createPost = async (content: string, images: string[] = []) => {
   return data;
 };
 
-export const likePost = async (postId: string) => {
+export const likePost = async (postId: string): Promise<void> => {
   const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -245,7 +306,18 @@ export const likePost = async (postId: string) => {
       user_id: user.id
     });
 
-  if (error) throw error;
+  if (error && !error.message.includes('duplicate')) throw error;
+  
+  // Create notification for post owner
+  const { data: post } = await supabase
+    .from('posts')
+    .select('user_id')
+    .eq('id', postId)
+    .single();
+    
+  if (post && post.user_id !== user.id) {
+    await createNotification(post.user_id, 'like', user.id, postId);
+  }
 };
 
 export const unlikePost = async (postId: string) => {
@@ -261,7 +333,7 @@ export const unlikePost = async (postId: string) => {
   if (error) throw error;
 };
 
-export const addComment = async (postId: string, content: string) => {
+export const addComment = async (postId: string, content: string): Promise<Comment> => {
   const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -276,6 +348,18 @@ export const addComment = async (postId: string, content: string) => {
     .single();
 
   if (error) throw error;
+  
+  // Create notification for post owner
+  const { data: post } = await supabase
+    .from('posts')
+    .select('user_id')
+    .eq('id', postId)
+    .single();
+    
+  if (post && post.user_id !== user.id) {
+    await createNotification(post.user_id, 'comment', user.id, postId);
+  }
+  
   return data;
 };
 
@@ -314,14 +398,25 @@ export const getStories = async (): Promise<Story[]> => {
 };
 
 export const createStory = async (
-  content: string | null, 
-  imageUrl: string | null = null,
-  videoUrl: string | null = null,
-  textOverlay: string | null = null,
-  textColor: string | null = null
-) => {
+  content: string | null,
+  imageFile?: File | null,
+  videoFile?: File | null,
+  textOverlay?: string | null,
+  textColor?: string | null
+): Promise<Story> => {
   const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
+
+  let imageUrl = null;
+  let videoUrl = null;
+  
+  // Upload media files if provided
+  if (imageFile) {
+    imageUrl = await uploadFile(imageFile, 'stories', user.id);
+  }
+  if (videoFile) {
+    videoUrl = await uploadFile(videoFile, 'stories', user.id);
+  }
 
   const { data, error } = await supabase
     .from('stories')
@@ -354,8 +449,33 @@ export const viewStory = async (storyId: string) => {
   if (error && !error.message.includes('duplicate')) throw error;
 };
 
+export const likeStory = async (storyId: string): Promise<void> => {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('story_likes')
+    .insert({
+      story_id: storyId,
+      user_id: user.id
+    });
+
+  if (error && !error.message.includes('duplicate')) throw error;
+  
+  // Create notification for story owner
+  const { data: story } = await supabase
+    .from('stories')
+    .select('user_id')
+    .eq('id', storyId)
+    .single();
+    
+  if (story && story.user_id !== user.id) {
+    await createNotification(story.user_id, 'story_like', user.id, undefined, storyId);
+  }
+};
+
 // Follow functions
-export const followUser = async (targetUserId: string) => {
+export const followUser = async (targetUserId: string): Promise<void> => {
   const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -366,7 +486,10 @@ export const followUser = async (targetUserId: string) => {
       following_id: targetUserId
     });
 
-  if (error) throw error;
+  if (error && !error.message.includes('duplicate')) throw error;
+  
+  // Create notification for followed user
+  await createNotification(targetUserId, 'follow', user.id);
 };
 
 export const unfollowUser = async (targetUserId: string) => {
@@ -526,29 +649,10 @@ export const getConversations = async (): Promise<Conversation[]> => {
         );
       }
 
-      // Get profiles for message senders
-      let messagesWithProfiles = [];
-      if (messagesData.data && messagesData.data.length > 0) {
-        messagesWithProfiles = await Promise.all(
-          messagesData.data.map(async (message) => {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('user_id', message.sender_id)
-              .single();
-            
-            return {
-              ...message,
-              profiles: profileData
-            };
-          })
-        );
-      }
-
       return {
         ...conversation,
         conversation_participants: participantsWithProfiles,
-        messages: messagesWithProfiles
+        messages: messagesData.data || []
       };
     })
   );
@@ -556,12 +660,12 @@ export const getConversations = async (): Promise<Conversation[]> => {
   return conversationsWithDetails;
 };
 
-export const createConversation = async (participantUserIds: string[]) => {
+export const createConversation = async (participantUserIds: string[]): Promise<Conversation> => {
   const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
 
-  // Create conversation
-  const { data: conversation, error: conversationError } = await supabase
+  // Create the conversation
+  const { data: conversationData, error: conversationError } = await supabase
     .from('conversations')
     .insert({})
     .select()
@@ -569,22 +673,23 @@ export const createConversation = async (participantUserIds: string[]) => {
 
   if (conversationError) throw conversationError;
 
-  // Add participants
-  const participants = [user.id, ...participantUserIds].map(userId => ({
-    conversation_id: conversation.id,
+  // Add all participants
+  const participants = [...participantUserIds, user.id];
+  const participantInserts = participants.map(userId => ({
+    conversation_id: conversationData.id,
     user_id: userId
   }));
 
-  const { error: participantsError } = await supabase
+  const { error: participantError } = await supabase
     .from('conversation_participants')
-    .insert(participants);
+    .insert(participantInserts);
 
-  if (participantsError) throw participantsError;
+  if (participantError) throw participantError;
 
-  return conversation;
+  return conversationData;
 };
 
-export const sendMessage = async (conversationId: string, content: string) => {
+export const sendMessage = async (conversationId: string, content: string): Promise<Message> => {
   const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -607,4 +712,82 @@ export const sendMessage = async (conversationId: string, content: string) => {
     .eq('id', conversationId);
 
   return data;
+};
+
+// Notifications Functions
+export const getNotifications = async (): Promise<Notification[]> => {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  
+  // Get profiles separately
+  const notificationsWithProfiles = await Promise.all(
+    (data || []).map(async (notification) => {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('username, full_name, avatar_url, is_verified')
+        .eq('user_id', notification.from_user_id)
+        .single();
+      
+      return {
+        ...notification,
+        profiles: profileData
+      };
+    })
+  );
+
+  return notificationsWithProfiles;
+};
+
+export const createNotification = async (
+  userId: string,
+  type: 'like' | 'comment' | 'follow' | 'story_like' | 'story_reply',
+  fromUserId: string,
+  postId?: string,
+  storyId?: string,
+  commentId?: string,
+  message?: string
+): Promise<void> => {
+  const { error } = await supabase
+    .from('notifications')
+    .insert({
+      user_id: userId,
+      type,
+      from_user_id: fromUserId,
+      post_id: postId,
+      story_id: storyId,
+      comment_id: commentId,
+      message
+    });
+
+  if (error) throw error;
+};
+
+export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('id', notificationId);
+
+  if (error) throw error;
+};
+
+export const markAllNotificationsAsRead = async (): Promise<void> => {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('user_id', user.id)
+    .eq('is_read', false);
+
+  if (error) throw error;
 };
