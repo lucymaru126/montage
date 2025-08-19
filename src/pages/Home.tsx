@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Heart, MessageCircle, Send, Bookmark } from "lucide-react";
+import { Plus, Play, MessageCircle, Send, Bookmark, Camera, Heart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -78,8 +78,8 @@ const Home = () => {
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2">
             <img src="/src/assets/montage-icon.png" alt="Montage" className="w-6 h-6" />
-            <h1 className="text-xl font-semibold text-foreground">
-              montage
+            <h1 className="text-2xl font-bold text-foreground font-inter tracking-tight">
+              Cytol
             </h1>
           </div>
           <div className="flex items-center gap-4">
@@ -89,7 +89,7 @@ const Home = () => {
               onClick={() => navigate("/create")}
               className="text-foreground hover:text-primary h-8 w-8"
             >
-              <Plus size={22} />
+              <Plus size={24} strokeWidth={2} />
             </Button>
             <Button 
               variant="ghost" 
@@ -97,7 +97,7 @@ const Home = () => {
               onClick={() => navigate("/messages")}
               className="text-foreground hover:text-primary h-8 w-8"
             >
-              <Send size={22} />
+              <Send size={24} strokeWidth={2} />
             </Button>
           </div>
         </div>
@@ -105,7 +105,7 @@ const Home = () => {
 
       {/* Stories Row */}
       <div className="border-b border-border py-4">
-        <div className="flex items-center gap-4 px-4 overflow-x-auto scrollbar-hide">
+        <div className="flex items-center gap-3 px-4 overflow-x-auto scrollbar-hide">
           {/* Your Story */}
           <button 
             className="flex flex-col items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
@@ -113,29 +113,31 @@ const Home = () => {
           >
             <div className="relative">
               {getUserStories(currentUser.id).length > 0 ? (
-                <div className={`p-0.5 rounded-full ${hasUnviewedStories(currentUser.id, currentUser.id) ? 'bg-gradient-story' : 'bg-muted'}`}>
-                  <Avatar className="w-16 h-16 ring-2 ring-background">
-                    <AvatarImage src={currentUser.avatar} />
-                    <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
-                      {currentUser.fullName.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                <div className={`p-0.5 ${hasUnviewedStories(currentUser.id, currentUser.id) ? 'bg-gradient-story' : 'bg-muted'} rounded-2xl`}>
+                  <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-background">
+                    <img 
+                      src={currentUser.avatar || '/placeholder.svg'} 
+                      alt={currentUser.fullName}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="relative">
-                  <Avatar className="w-16 h-16 ring-2 ring-muted">
-                    <AvatarImage src={currentUser.avatar} />
-                    <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
-                      {currentUser.fullName.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-muted bg-muted">
+                    <img 
+                      src={currentUser.avatar || '/placeholder.svg'} 
+                      alt={currentUser.fullName}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-primary rounded-full flex items-center justify-center border-2 border-background">
-                    <Plus size={12} className="text-primary-foreground" />
+                    <Plus size={14} className="text-primary-foreground" strokeWidth={2.5} />
                   </div>
                 </div>
               )}
             </div>
-            <span className="text-xs text-foreground font-medium max-w-[4.5rem] truncate">
+            <span className="text-xs text-foreground font-medium max-w-[4.5rem] truncate font-inter">
               {getUserStories(currentUser.id).length > 0 ? currentUser.username : "Your story"}
             </span>
           </button>
@@ -151,15 +153,16 @@ const Home = () => {
                   className="flex flex-col items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
                   onClick={() => navigate(`/story/${user.id}/0`)}
                 >
-                  <div className={`p-0.5 rounded-full ${hasUnviewed ? 'bg-gradient-story' : 'bg-muted'}`}>
-                    <Avatar className="w-16 h-16 ring-2 ring-background">
-                      <AvatarImage src={user.avatar} />
-                      <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
-                        {user.fullName.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                  <div className={`p-0.5 ${hasUnviewed ? 'bg-gradient-story' : 'bg-muted'} rounded-2xl`}>
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-background">
+                      <img 
+                        src={user.avatar || '/placeholder.svg'} 
+                        alt={user.fullName}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                   </div>
-                  <span className="text-xs text-foreground font-medium truncate max-w-[4.5rem]">
+                  <span className="text-xs text-foreground font-medium truncate max-w-[4.5rem] font-inter">
                     {user.username}
                   </span>
                 </button>
@@ -243,7 +246,7 @@ const Home = () => {
                               : 'text-foreground hover:text-red-500'
                           }`}
                         >
-                          <Heart size={20} fill={post.likes.includes(currentUser.id) ? 'currentColor' : 'none'} />
+                          <Heart size={24} fill={post.likes.includes(currentUser.id) ? 'currentColor' : 'none'} strokeWidth={1.5} />
                         </Button>
                         <Button 
                           variant="ghost" 
@@ -251,14 +254,14 @@ const Home = () => {
                           className="h-8 w-8 text-foreground hover:text-primary"
                           onClick={() => navigate(`/post/${post.id}`)}
                         >
-                          <MessageCircle size={20} />
+                          <MessageCircle size={24} strokeWidth={1.5} />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-foreground hover:text-primary">
-                          <Send size={20} />
+                          <Send size={24} strokeWidth={1.5} />
                         </Button>
                       </div>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-foreground hover:text-primary">
-                        <Bookmark size={20} />
+                        <Bookmark size={24} strokeWidth={1.5} />
                       </Button>
                     </div>
 

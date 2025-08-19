@@ -1,4 +1,4 @@
-import { Home, Search, Plus, Heart, User, LogOut } from "lucide-react";
+import { Home, Search, Plus, Play, User, LogOut } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -30,7 +30,7 @@ const BottomNav = () => {
     { icon: Home, path: "/", label: "Home" },
     { icon: Search, path: "/search", label: "Search" },
     { icon: Plus, path: "/create", label: "Create" },
-    { icon: Heart, path: "/activity", label: "Activity" },
+    { icon: Play, path: "/reels", label: "Reels" },
     { path: "/profile", label: "Profile", isProfile: true }
   ];
 

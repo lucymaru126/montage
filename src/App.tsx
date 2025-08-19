@@ -14,6 +14,7 @@ import Profile from "./pages/Profile";
 import Messages from "./pages/Messages";
 import Activity from "./pages/Activity";
 import Stories from "./pages/Stories";
+import Reels from "./pages/Reels";
 import Settings from "./pages/Settings";
 import AccountSettings from "./pages/AccountSettings";
 import NotificationSettings from "./pages/NotificationSettings";
@@ -45,6 +46,7 @@ const AppLayout = () => {
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
         <Route path="/messages/:userId" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path="/activity" element={<ProtectedRoute><Activity /></ProtectedRoute>} />
+        <Route path="/reels" element={<ProtectedRoute><Reels /></ProtectedRoute>} />
         <Route path="/stories" element={<ProtectedRoute><Stories /></ProtectedRoute>} />
         <Route path="/stories/:userId" element={<ProtectedRoute><StoryViewer /></ProtectedRoute>} />
         <Route path="/post/:postId" element={<ProtectedRoute><PostViewer /></ProtectedRoute>} />
