@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { GradientButton } from "@/components/ui/button-variants";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getCurrentUser, savePost, Post, generateId } from "@/lib/storage";
+import { createPost } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
 const Create = () => {
@@ -15,7 +16,7 @@ const Create = () => {
   const [isPosting, setIsPosting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useAuth();
 
   if (!currentUser) {
     navigate("/auth");
@@ -63,17 +64,7 @@ const Create = () => {
     setIsPosting(true);
 
     try {
-      const newPost: Post = {
-        id: generateId(),
-        userId: currentUser.id,
-        content: content.trim(),
-        images: selectedImages,
-        likes: [],
-        comments: [],
-        createdAt: new Date().toISOString()
-      };
-
-      savePost(newPost);
+      await createPost(content.trim(), selectedImages.length > 0 ? selectedImages : undefined);
       
       toast({
         title: "Post shared!",
@@ -82,6 +73,7 @@ const Create = () => {
 
       navigate("/");
     } catch (error) {
+      console.error('Error creating post:', error);
       toast({
         title: "Failed to post",
         description: "Something went wrong. Please try again.",
@@ -123,14 +115,14 @@ const Create = () => {
         {/* User Info */}
         <div className="flex items-center gap-3">
           <Avatar className="w-12 h-12">
-            <AvatarImage src={currentUser.avatar} />
+            <AvatarImage src={currentUser.user_metadata?.avatar_url} />
             <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
-              {currentUser.fullName.charAt(0).toUpperCase()}
+              {(currentUser.user_metadata?.full_name || currentUser.email)?.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-semibold text-foreground">{currentUser.username}</p>
-            <p className="text-sm text-muted-foreground">{currentUser.fullName}</p>
+            <p className="font-semibold text-foreground">{currentUser.user_metadata?.username || currentUser.email?.split('@')[0]}</p>
+            <p className="text-sm text-muted-foreground">{currentUser.user_metadata?.full_name || currentUser.email}</p>
           </div>
         </div>
 

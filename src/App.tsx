@@ -44,7 +44,7 @@ const AppLayout = () => {
         <Route path="/create" element={<ProtectedRoute><Create /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
-        <Route path="/messages/:userId" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+        <Route path="/messages/chat/:userId" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path="/activity" element={<ProtectedRoute><Activity /></ProtectedRoute>} />
         <Route path="/reels" element={<ProtectedRoute><Reels /></ProtectedRoute>} />
         <Route path="/stories" element={<ProtectedRoute><Stories /></ProtectedRoute>} />

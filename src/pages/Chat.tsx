@@ -1,112 +1,100 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Send, Phone, Video, Info } from "lucide-react";
+import { ArrowLeft, Send, MoreVertical, Phone, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { 
-  getCurrentUser, 
-  getUserById, 
-  getConversations,
-  saveConversation,
-  generateId,
-  User, 
-  Conversation,
-  Message 
-} from "@/lib/storage";
+import { Card, CardContent } from "@/components/ui/card";
+import { getProfileById, sendMessage, getConversations, createConversation, Message } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 const Chat = () => {
   const { userId } = useParams<{ userId: string }>();
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [otherUser, setOtherUser] = useState<User | null>(null);
-  const [conversation, setConversation] = useState<Conversation | null>(null);
-  const [newMessage, setNewMessage] = useState("");
+  const { user: currentUser } = useAuth();
+  const [otherUser, setOtherUser] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const navigate = useNavigate();
+  const [newMessage, setNewMessage] = useState("");
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) {
+    if (!currentUser || !userId) {
       navigate("/auth");
       return;
     }
-    
-    setCurrentUser(user);
-    
-    if (userId) {
-      const other = getUserById(userId);
-      if (other) {
-        setOtherUser(other);
-        
-        // Find existing conversation
-        const conversations = getConversations(user.id);
-        const existingConv = conversations.find(conv => 
-          conv.participants.includes(userId)
-        );
-        
-        if (existingConv) {
-          setConversation(existingConv);
-          setMessages(existingConv.messages);
-        } else {
-          // Create new conversation structure
-          const newConv: Conversation = {
-            id: generateId(),
-            participants: [user.id, userId],
-            messages: [],
-            lastMessage: {
-              id: '',
-              fromUserId: '',
-              toUserId: '',
-              content: '',
-              createdAt: new Date().toISOString(),
-              read: true
-            }
-          };
-          setConversation(newConv);
-          setMessages([]);
-        }
-      }
-    }
-  }, [userId, navigate]);
+    initializeChat();
+  }, [currentUser, userId, navigate]);
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const initializeChat = async () => {
+    try {
+      // Get other user's profile
+      const profile = await getProfileById(userId!);
+      setOtherUser(profile);
+
+      // Get existing conversations
+      const conversations = await getConversations();
+      const existingConversation = conversations.find(conv => 
+        conv.conversation_participants?.some(p => p.user_id === userId)
+      );
+
+      if (existingConversation) {
+        setConversationId(existingConversation.id);
+        setMessages(existingConversation.messages || []);
+      }
+    } catch (error) {
+      console.error('Error initializing chat:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load conversation.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !currentUser || !otherUser || !conversation) return;
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !currentUser || !userId) return;
 
-    const message: Message = {
-      id: generateId(),
-      fromUserId: currentUser.id,
-      toUserId: otherUser.id,
-      content: newMessage.trim(),
-      createdAt: new Date().toISOString(),
-      read: false
-    };
+    try {
+      let currentConversationId = conversationId;
 
-    const updatedMessages = [...messages, message];
-    const updatedConversation: Conversation = {
-      ...conversation,
-      messages: updatedMessages,
-      lastMessage: message
-    };
+      // Create conversation if it doesn't exist
+      if (!currentConversationId) {
+        const newConversation = await createConversation([currentUser.id, userId]);
+        currentConversationId = newConversation.id;
+        setConversationId(currentConversationId);
+      }
 
-    setMessages(updatedMessages);
-    setConversation(updatedConversation);
-    saveConversation(updatedConversation);
-    setNewMessage("");
+      // Send message
+      const message = await sendMessage(currentConversationId, newMessage.trim());
+      setMessages(prev => [...prev, message]);
+      setNewMessage("");
+
+      toast({
+        title: "Message sent",
+        description: "Your message has been delivered.",
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
@@ -117,115 +105,116 @@ const Chat = () => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  if (!currentUser || !otherUser) {
+  if (!currentUser || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading conversation...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!otherUser) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">User not found</p>
+          <Button onClick={() => navigate(-1)} className="mt-4">
+            Go Back
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="flex-shrink-0 bg-background/80 backdrop-blur-md border-b border-border">
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
         <div className="flex items-center justify-between px-4 h-16">
           <div className="flex items-center gap-3">
             <Button 
               variant="ghost" 
               size="icon"
-              onClick={() => navigate("/messages")}
+              onClick={() => navigate(-1)}
               className="text-foreground hover:text-primary"
             >
-              <ArrowLeft size={20} />
+              <ArrowLeft size={24} />
             </Button>
-            <button
-              onClick={() => navigate(`/user/${otherUser.id}`)}
+            <button 
               className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              onClick={() => navigate(`/user/${otherUser.user_id}`)}
             >
               <Avatar className="w-10 h-10">
-                <AvatarImage src={otherUser.avatar} />
+                <AvatarImage src={otherUser.avatar_url} />
                 <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
-                  {otherUser.fullName.charAt(0).toUpperCase()}
+                  {(otherUser.full_name || otherUser.username || 'U').charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="text-left">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-semibold text-foreground">{otherUser.username}</h1>
-                  {otherUser.isVerified && (
-                    <Badge variant="secondary" className="bg-primary text-primary-foreground h-5 w-5 p-0 rounded-full flex items-center justify-center">
-                      ✓
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-sm text-muted-foreground">{otherUser.fullName}</p>
+                <h1 className="font-semibold text-foreground">{otherUser.username}</h1>
+                <p className="text-xs text-muted-foreground">
+                  {otherUser.full_name}
+                </p>
               </div>
             </button>
           </div>
+          
           <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="text-foreground hover:text-primary"
-            >
+            <Button variant="ghost" size="icon" className="text-foreground">
               <Phone size={20} />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="text-foreground hover:text-primary"
-            >
+            <Button variant="ghost" size="icon" className="text-foreground">
               <Video size={20} />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="text-foreground hover:text-primary"
-            >
-              <Info size={20} />
+            <Button variant="ghost" size="icon" className="text-foreground">
+              <MoreVertical size={20} />
             </Button>
           </div>
         </div>
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div className="flex-1 p-4 space-y-4 overflow-y-auto">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full">
+          <div className="flex flex-col items-center justify-center py-20">
             <Avatar className="w-20 h-20 mb-4">
-              <AvatarImage src={otherUser.avatar} />
-              <AvatarFallback className="bg-gradient-primary text-primary-foreground text-xl font-bold">
-                {otherUser.fullName.charAt(0).toUpperCase()}
+              <AvatarImage src={otherUser.avatar_url} />
+              <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold text-xl">
+                {(otherUser.full_name || otherUser.username || 'U').charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <h3 className="text-lg font-semibold text-foreground mb-2">{otherUser.fullName}</h3>
-            <p className="text-muted-foreground text-center mb-4">@{otherUser.username}</p>
-            <p className="text-muted-foreground text-center text-sm">
-              This is the beginning of your conversation with {otherUser.fullName}.
+            <h2 className="text-xl font-semibold text-foreground mb-2">{otherUser.username}</h2>
+            <p className="text-muted-foreground text-center mb-6">
+              Start a conversation with {otherUser.full_name || otherUser.username}
             </p>
           </div>
         ) : (
           messages.map((message) => (
             <div
               key={message.id}
-              className={`flex ${message.fromUserId === currentUser.id ? "justify-end" : "justify-start"}`}
+              className={`flex ${message.sender_id === currentUser.id ? 'justify-end' : 'justify-start'}`}
             >
-              <div
-                className={`max-w-[70%] rounded-2xl px-4 py-2 ${
-                  message.fromUserId === currentUser.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground"
+              <Card 
+                className={`max-w-[70%] ${
+                  message.sender_id === currentUser.id 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-muted'
                 }`}
               >
-                <p className="text-sm">{message.content}</p>
-                <p className={`text-xs mt-1 ${
-                  message.fromUserId === currentUser.id
-                    ? "text-primary-foreground/70"
-                    : "text-muted-foreground"
-                }`}>
-                  {formatTime(message.createdAt)}
-                </p>
-              </div>
+                <CardContent className="p-3">
+                  <p className="text-sm">{message.content}</p>
+                  <p className={`text-xs mt-1 ${
+                    message.sender_id === currentUser.id 
+                      ? 'text-primary-foreground/70' 
+                      : 'text-muted-foreground'
+                  }`}>
+                    {formatTime(message.created_at)}
+                  </p>
+                </CardContent>
+              </Card>
             </div>
           ))
         )}
@@ -233,22 +222,22 @@ const Chat = () => {
       </div>
 
       {/* Message Input */}
-      <div className="flex-shrink-0 border-t border-border p-4">
+      <div className="border-t border-border p-4">
         <div className="flex items-center gap-3">
           <Input
-            type="text"
-            placeholder="Message..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            className="flex-1 rounded-full border-input bg-muted/50"
+            placeholder="Type a message..."
+            className="flex-1 rounded-full border-input"
           />
           <Button
             onClick={handleSendMessage}
             disabled={!newMessage.trim()}
-            className="bg-primary text-primary-foreground rounded-full w-10 h-10 p-0"
+            size="icon"
+            className="rounded-full bg-primary text-primary-foreground"
           >
-            <Send size={16} />
+            <Send size={20} />
           </Button>
         </div>
       </div>

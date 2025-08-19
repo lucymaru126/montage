@@ -4,14 +4,16 @@ import { ArrowLeft, Plus, X, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { GradientButton } from "@/components/ui/button-variants";
-import { getCurrentUser, getStories, saveStory, generateId, generateStoryExpiration, getUserById, getUserStories, hasUnviewedStories, Story } from "@/lib/storage";
+import { getStories, createStory, getAllProfiles, Story } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import StoryEditor from "@/components/StoryEditor";
 
 const Stories = () => {
-  const [currentUser, setCurrentUser] = useState(getCurrentUser());
+  const { user: currentUser } = useAuth();
   const [stories, setStories] = useState<Story[]>([]);
+  const [profiles, setProfiles] = useState<any[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string>("");
   const [selectedVideo, setSelectedVideo] = useState<string>("");
@@ -27,9 +29,17 @@ const Stories = () => {
     loadStories();
   }, [currentUser, navigate]);
 
-  const loadStories = () => {
-    const allStories = getStories();
-    setStories(allStories);
+  const loadStories = async () => {
+    try {
+      const [storiesData, profilesData] = await Promise.all([
+        getStories(),
+        getAllProfiles()
+      ]);
+      setStories(storiesData);
+      setProfiles(profilesData);
+    } catch (error) {
+      console.error('Error loading stories:', error);
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,44 +65,46 @@ const Stories = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleCreateStory = (content: string, textOverlay?: string, textColor?: string) => {
+  const handleCreateStory = async (content: string, textOverlay?: string, textColor?: string) => {
     if (!currentUser || (!content.trim() && !selectedImage && !selectedVideo && !textOverlay)) return;
 
-    const story: Story = {
-      id: generateId(),
-      userId: currentUser.id,
-      content: content,
-      image: selectedImage,
-      video: selectedVideo,
-      textOverlay,
-      textColor,
-      expiresAt: generateStoryExpiration(),
-      views: [],
-      likes: [],
-      replies: [],
-      createdAt: new Date().toISOString()
-    };
-
-    saveStory(story);
-    setSelectedImage("");
-    setSelectedVideo("");
-    setShowEditor(false);
-    setIsCreating(false);
-    loadStories();
-    
-    toast({
-      title: "Story posted",
-      description: "Your story has been shared successfully.",
-    });
+    try {
+      await createStory(
+        content.trim() || null,
+        selectedImage || null,
+        selectedVideo || null,
+        textOverlay || null,
+        textColor || null
+      );
+      
+      setSelectedImage("");
+      setSelectedVideo("");
+      setShowEditor(false);
+      setIsCreating(false);
+      loadStories();
+      
+      toast({
+        title: "Story posted",
+        description: "Your story has been shared successfully.",
+      });
+    } catch (error) {
+      console.error('Error creating story:', error);
+      toast({
+        title: "Error",
+        description: "Failed to post story. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   if (!currentUser) return null;
 
+  const userStories = stories.filter(story => story.user_id === currentUser.id);
   const groupedStories = stories.reduce((acc, story) => {
-    if (!acc[story.userId]) {
-      acc[story.userId] = [];
+    if (!acc[story.user_id]) {
+      acc[story.user_id] = [];
     }
-    acc[story.userId].push(story);
+    acc[story.user_id].push(story);
     return acc;
   }, {} as Record<string, Story[]>);
 
@@ -194,25 +206,25 @@ const Stories = () => {
       {/* Stories Section */}
       <div className="px-4 py-6">
         {/* Your Stories */}
-        {currentUser && getUserStories(currentUser.id).length > 0 && (
+        {userStories.length > 0 && (
           <div className="mb-8">
             <h2 className="text-lg font-semibold text-foreground mb-4">Your Stories</h2>
             <div className="flex gap-3 overflow-x-auto scrollbar-hide">
-              {getUserStories(currentUser.id).map((story, index) => (
+              {userStories.map((story, index) => (
                 <button
                   key={story.id}
                   className="flex-shrink-0 hover:opacity-80 transition-opacity"
                   onClick={() => navigate(`/story/${currentUser.id}/${index}`)}
                 >
                   <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-primary">
-                    {story.image ? (
-                      <img src={story.image} alt="Your story" className="w-full h-full object-cover" />
-                    ) : story.video ? (
-                      <video src={story.video} className="w-full h-full object-cover" muted />
+                    {story.image_url ? (
+                      <img src={story.image_url} alt="Your story" className="w-full h-full object-cover" />
+                    ) : story.video_url ? (
+                      <video src={story.video_url} className="w-full h-full object-cover" muted />
                     ) : (
                       <div className="w-full h-full bg-gradient-subtle flex items-center justify-center">
                         <span className="text-xs text-center text-foreground font-medium px-2">
-                          {story.content.slice(0, 20)}...
+                          {story.content?.slice(0, 20)}...
                         </span>
                       </div>
                     )}
@@ -244,10 +256,8 @@ const Stories = () => {
           <div className="space-y-6">
             <h2 className="text-lg font-semibold text-foreground">All Stories</h2>
             {Object.entries(groupedStories).map(([userId, userStories]) => {
-              const user = getUserById(userId);
+              const user = profiles.find(p => p.user_id === userId);
               if (!user) return null;
-
-              const hasUnviewed = hasUnviewedStories(userId, currentUser.id);
 
               return (
                 <div key={userId} className="space-y-3">
@@ -255,16 +265,16 @@ const Stories = () => {
                     className="flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity"
                     onClick={() => navigate(`/story/${userId}/0`)}
                   >
-                    <div className={`p-0.5 rounded-full ${hasUnviewed ? 'bg-gradient-story' : 'bg-muted'}`}>
+                    <div className="p-0.5 rounded-full bg-gradient-story">
                       <Avatar className="w-14 h-14 ring-2 ring-background">
-                        <AvatarImage src={user.avatar} />
+                        <AvatarImage src={user.avatar_url} />
                         <AvatarFallback className="bg-gradient-primary text-primary-foreground font-bold">
-                          {user.fullName.charAt(0).toUpperCase()}
+                          {(user.full_name || user.username || 'U').charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                     </div>
                     <div>
-                      <p className="font-semibold text-foreground">{user.fullName}</p>
+                      <p className="font-semibold text-foreground">{user.full_name || user.username}</p>
                       <p className="text-sm text-muted-foreground">
                         @{user.username} • {userStories.length} {userStories.length === 1 ? 'story' : 'stories'}
                       </p>
@@ -278,15 +288,15 @@ const Stories = () => {
                         className="aspect-square overflow-hidden rounded-lg border border-border hover:opacity-80 transition-opacity"
                         onClick={() => navigate(`/story/${userId}/${index}`)}
                       >
-                        {story.image ? (
+                        {story.image_url ? (
                           <img 
-                            src={story.image} 
+                            src={story.image_url} 
                             alt="Story preview"
                             className="w-full h-full object-cover"
                           />
-                        ) : story.video ? (
+                        ) : story.video_url ? (
                           <video 
-                            src={story.video} 
+                            src={story.video_url} 
                             className="w-full h-full object-cover"
                             muted
                           />
