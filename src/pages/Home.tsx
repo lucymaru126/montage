@@ -247,24 +247,31 @@ const Home = () => {
                   <div className="flex items-center justify-between p-4">
                     <button 
                       className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-                      onClick={() => navigate(`/user/${postUser.id}`)}
+                      onClick={() => navigate(`/user/${postProfile.user_id}`)}
                     >
                       <Avatar className="w-10 h-10">
-                        <AvatarImage src={postUser.avatar} />
+                        <AvatarImage src={postProfile.avatar_url} />
                         <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold text-sm">
-                          {postUser.fullName.charAt(0).toUpperCase()}
+                          {(postProfile.full_name || postProfile.username).charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div className="text-left">
-                        <p className="font-semibold text-foreground text-sm">{postUser.username}</p>
-                        <p className="text-xs text-muted-foreground">{formatTimeAgo(post.createdAt)}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-foreground text-sm">{postProfile.username}</p>
+                          {postProfile.is_verified && (
+                            <div className="w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                              <span className="text-primary-foreground text-xs">✓</span>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{formatTimeAgo(post.created_at)}</p>
                       </div>
                     </button>
                   </div>
 
                   {/* Post Images */}
-                  {post.images.length > 0 && (
-                    <div 
+                  {post.images && post.images.length > 0 && (
+                    <div
                       className="aspect-square bg-muted cursor-pointer" 
                       onDoubleClick={() => handleLike(post.id)}
                       onClick={() => navigate(`/post/${post.id}`)}
@@ -272,7 +279,7 @@ const Home = () => {
                       <img 
                         src={post.images[0]} 
                         alt="Post content"
-                        className="w-full h-full object-cover"
+                        className="w-full object-contain max-h-[600px]"
                       />
                     </div>
                   )}
@@ -286,12 +293,12 @@ const Home = () => {
                           size="icon" 
                           onClick={() => handleLike(post.id)}
                           className={`h-8 w-8 ${
-                            post.likes.includes(currentUser.id) 
+                            isLiked
                               ? 'text-red-500' 
                               : 'text-foreground hover:text-red-500'
                           }`}
                         >
-                          <Heart size={24} fill={post.likes.includes(currentUser.id) ? 'currentColor' : 'none'} strokeWidth={1.5} />
+                          <Heart size={24} fill={isLiked ? 'currentColor' : 'none'} strokeWidth={1.5} />
                         </Button>
                         <Button 
                           variant="ghost" 
@@ -311,17 +318,19 @@ const Home = () => {
                     </div>
 
                     {/* Likes */}
-                    <p className="font-semibold text-sm text-foreground mb-2">
-                      {post.likes.length} likes
-                    </p>
+                    {likesCount > 0 && (
+                      <p className="font-semibold text-sm text-foreground mb-2">
+                        {likesCount} {likesCount === 1 ? 'like' : 'likes'}
+                      </p>
+                    )}
 
                     {/* Post Content */}
                     <div className="text-sm text-foreground">
-                      <span className="font-semibold">{postUser.username}</span> {post.content}
+                      <span className="font-semibold">{postProfile.username}</span> {post.content}
                     </div>
 
                     {/* Comments */}
-                    {post.comments.length > 0 && (
+                    {post.comments && post.comments.length > 0 && (
                       <button 
                         className="text-sm text-muted-foreground mt-2 hover:opacity-80 transition-opacity"
                         onClick={() => navigate(`/post/${post.id}`)}
