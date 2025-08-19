@@ -738,8 +738,9 @@ export const getNotifications = async (): Promise<Notification[]> => {
       
       return {
         ...notification,
+        type: notification.type as 'like' | 'comment' | 'follow' | 'story_like' | 'story_reply',
         profiles: profileData
-      };
+      } as Notification;
     })
   );
 
