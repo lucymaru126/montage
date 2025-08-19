@@ -260,18 +260,38 @@ const Search = () => {
                   if (!postUser) return null;
 
                   return (
-                    <Card key={post.id} className="border border-border hover:border-primary/20 transition-colors cursor-pointer">
+                     <Card 
+                       key={post.id} 
+                       className="border border-border hover:border-primary/20 transition-colors cursor-pointer"
+                       onClick={() => navigate(`/post/${post.id}`)}
+                     >
                       <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <Avatar className="w-10 h-10">
-                            <AvatarImage src={postUser.avatar_url} />
-                            <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold text-sm">
-                              {(postUser.full_name || postUser.username || 'U').charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-sm text-foreground">{postUser.username}</h3>
+                         <div className="flex items-start gap-3">
+                           <button 
+                             className="hover:opacity-80 transition-opacity"
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               navigate(`/user/${postUser.user_id}`);
+                             }}
+                           >
+                             <Avatar className="w-10 h-10">
+                               <AvatarImage src={postUser.avatar_url} />
+                               <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold text-sm">
+                                 {(postUser.full_name || postUser.username || 'U').charAt(0).toUpperCase()}
+                               </AvatarFallback>
+                             </Avatar>
+                           </button>
+                           <div className="flex-1 min-w-0">
+                             <div className="flex items-center gap-2 mb-1">
+                               <button 
+                                 className="font-semibold text-sm text-foreground hover:opacity-80 transition-opacity"
+                                 onClick={(e) => {
+                                   e.stopPropagation();
+                                   navigate(`/user/${postUser.user_id}`);
+                                 }}
+                               >
+                                 {postUser.username}
+                               </button>
                               <span className="text-xs text-muted-foreground">•</span>
                               <span className="text-xs text-muted-foreground">
                                 {new Date(post.created_at).toLocaleDateString()}

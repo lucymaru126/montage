@@ -277,25 +277,28 @@ const Stories = () => {
 
               return (
                 <div key={userId} className="space-y-3">
-                  <button
-                    className="flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity"
-                    onClick={() => navigate(`/story/${userId}/0`)}
-                  >
-                    <div className="p-0.5 rounded-full bg-gradient-story">
-                      <Avatar className="w-14 h-14 ring-2 ring-background">
-                        <AvatarImage src={user.avatar_url} />
-                        <AvatarFallback className="bg-gradient-primary text-primary-foreground font-bold">
-                          {(user.full_name || user.username || 'U').charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{user.full_name || user.username}</p>
-                      <p className="text-sm text-muted-foreground">
-                        @{user.username} • {userStories.length} {userStories.length === 1 ? 'story' : 'stories'}
-                      </p>
-                    </div>
-                  </button>
+                   <div className="flex items-center gap-3">
+                     <button
+                       className="p-0.5 rounded-full bg-gradient-story hover:opacity-80 transition-opacity"
+                       onClick={() => navigate(`/story/${userId}/0`)}
+                     >
+                       <Avatar className="w-14 h-14 ring-2 ring-background">
+                         <AvatarImage src={user.avatar_url} />
+                         <AvatarFallback className="bg-gradient-primary text-primary-foreground font-bold">
+                           {(user.full_name || user.username || 'U').charAt(0).toUpperCase()}
+                         </AvatarFallback>
+                       </Avatar>
+                     </button>
+                     <button 
+                       className="flex-1 text-left hover:opacity-80 transition-opacity"
+                       onClick={() => navigate(`/user/${userId}`)}
+                     >
+                       <p className="font-semibold text-foreground">{user.full_name || user.username}</p>
+                       <p className="text-sm text-muted-foreground">
+                         @{user.username} • {userStories.length} {userStories.length === 1 ? 'story' : 'stories'}
+                       </p>
+                     </button>
+                   </div>
 
                   <div className="grid grid-cols-3 gap-1 ml-16">
                     {userStories.slice(0, 6).map((story, index) => (
