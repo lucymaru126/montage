@@ -5,16 +5,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getUsers, getPosts, User, Post, getCurrentUser } from "@/lib/storage";
+import { getAllProfiles, getPosts, Profile, Post } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<Profile[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<Profile[]>([]);
   const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
-  const currentUser = getCurrentUser();
+  const [loading, setLoading] = useState(true);
+  const { user: currentUser } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,15 +24,32 @@ const Search = () => {
       navigate("/auth");
       return;
     }
-    setUsers(getUsers());
-    setPosts(getPosts());
+    
+    const loadData = async () => {
+      try {
+        const [usersData, postsData] = await Promise.all([
+          getAllProfiles(),
+          getPosts()
+        ]);
+        setUsers(usersData);
+        setPosts(postsData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
   }, [currentUser, navigate]);
 
   useEffect(() => {
     if (searchQuery.trim()) {
       const userResults = users.filter(user => 
-        user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.fullName.toLowerCase().includes(searchQuery.toLowerCase())
+        user.user_id !== currentUser?.id &&
+        (user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         user.bio?.toLowerCase().includes(searchQuery.toLowerCase()))
       );
       const postResults = posts.filter(post =>
         post.content.toLowerCase().includes(searchQuery.toLowerCase())
@@ -42,10 +61,10 @@ const Search = () => {
       setFilteredUsers([]);
       setFilteredPosts([]);
     }
-  }, [searchQuery, users, posts]);
+  }, [searchQuery, users, posts, currentUser?.id]);
 
   const getUserById = (userId: string) => {
-    return users.find(user => user.id === userId);
+    return users.find(user => user.user_id === userId);
   };
 
   if (!currentUser) return null;
@@ -75,27 +94,27 @@ const Search = () => {
             <div>
               <h2 className="text-lg font-semibold text-foreground mb-4">Discover People</h2>
               <div className="grid grid-cols-2 gap-4">
-                {users.filter(user => user.id !== currentUser.id).slice(0, 6).map(user => (
+                {users.filter(user => user.user_id !== currentUser?.id).slice(0, 6).map(user => (
                   <Card 
                     key={user.id} 
                     className="border border-border hover:border-primary/20 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/user/${user.id}`)}
+                    onClick={() => navigate(`/user/${user.user_id}`)}
                   >
                     <CardContent className="p-4 text-center">
                       <Avatar className="w-16 h-16 mx-auto mb-3">
-                        <AvatarImage src={user.avatar} />
+                        <AvatarImage src={user.avatar_url} />
                         <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
-                          {user.fullName.charAt(0).toUpperCase()}
+                          {(user.full_name || user.username || 'U').charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <h3 className="font-semibold text-sm text-foreground">{user.username}</h3>
-                      <p className="text-xs text-muted-foreground mb-3 truncate">{user.fullName}</p>
+                      <p className="text-xs text-muted-foreground mb-3 truncate">{user.full_name}</p>
                       <Button 
                         size="sm" 
                         className="bg-gradient-primary text-primary-foreground text-xs px-4 py-1 rounded-full"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/user/${user.id}`);
+                          navigate(`/user/${user.user_id}`);
                         }}
                       >
                         View Profile
@@ -131,19 +150,19 @@ const Search = () => {
                   <Card 
                     key={user.id} 
                     className="border border-border hover:border-primary/20 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/user/${user.id}`)}
+                    onClick={() => navigate(`/user/${user.user_id}`)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
                         <Avatar className="w-12 h-12">
-                          <AvatarImage src={user.avatar} />
+                          <AvatarImage src={user.avatar_url} />
                           <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
-                            {user.fullName.charAt(0).toUpperCase()}
+                            {(user.full_name || user.username || 'U').charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-foreground">{user.username}</h3>
-                          <p className="text-sm text-muted-foreground truncate">{user.fullName}</p>
+                          <p className="text-sm text-muted-foreground truncate">{user.full_name}</p>
                           {user.bio && (
                             <p className="text-xs text-muted-foreground truncate mt-1">{user.bio}</p>
                           )}
@@ -153,7 +172,7 @@ const Search = () => {
                           className="bg-gradient-primary text-primary-foreground px-4 py-1 rounded-full"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/user/${user.id}`);
+                            navigate(`/user/${user.user_id}`);
                           }}
                         >
                           View Profile
@@ -173,7 +192,7 @@ const Search = () => {
                 </div>
               ) : (
                 filteredPosts.map(post => {
-                  const postUser = getUserById(post.userId);
+                  const postUser = getUserById(post.user_id);
                   if (!postUser) return null;
 
                   return (
@@ -181,9 +200,9 @@ const Search = () => {
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <Avatar className="w-10 h-10">
-                            <AvatarImage src={postUser.avatar} />
+                            <AvatarImage src={postUser.avatar_url} />
                             <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold text-sm">
-                              {postUser.fullName.charAt(0).toUpperCase()}
+                              {(postUser.full_name || postUser.username || 'U').charAt(0).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
@@ -191,16 +210,16 @@ const Search = () => {
                               <h3 className="font-semibold text-sm text-foreground">{postUser.username}</h3>
                               <span className="text-xs text-muted-foreground">•</span>
                               <span className="text-xs text-muted-foreground">
-                                {new Date(post.createdAt).toLocaleDateString()}
+                                {new Date(post.created_at).toLocaleDateString()}
                               </span>
                             </div>
                             <p className="text-sm text-foreground line-clamp-3">{post.content}</p>
                             <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                              <span>{post.likes.length} likes</span>
-                              <span>{post.comments.length} comments</span>
+                              <span>0 likes</span>
+                              <span>0 comments</span>
                             </div>
                           </div>
-                          {post.images.length > 0 && (
+                          {post.images && post.images.length > 0 && (
                             <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                               <img 
                                 src={post.images[0]} 

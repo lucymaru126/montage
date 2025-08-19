@@ -1,15 +1,30 @@
-import { Home, Search, Plus, Heart, User } from "lucide-react";
+import { Home, Search, Plus, Heart, User, LogOut } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { getCurrentUser } from "@/lib/storage";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentUser = getCurrentUser();
+  const { user: currentUser, profile, signOut } = useAuth();
 
   if (!currentUser) return null;
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate('/auth');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
   const navItems = [
     { icon: Home, path: "/", label: "Home" },
@@ -40,12 +55,26 @@ const BottomNav = () => {
             }`}
           >
             {item.isProfile ? (
-              <Avatar className="w-6 h-6">
-                <AvatarImage src={currentUser.avatar} />
-                <AvatarFallback className="bg-gradient-primary text-primary-foreground text-xs font-semibold">
-                  {currentUser.fullName.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Avatar className="w-6 h-6 cursor-pointer">
+                    <AvatarImage src={profile?.avatar_url} />
+                    <AvatarFallback className="bg-gradient-primary text-primary-foreground text-xs font-semibold">
+                      {(profile?.full_name || profile?.username || 'U').charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <User className="mr-2 h-4 w-4" />
+                    View Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <item.icon size={24} />
             )}

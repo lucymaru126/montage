@@ -5,31 +5,45 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getCurrentUser, getUsers, getConversations, User, Conversation } from "@/lib/storage";
+import { getAllProfiles, getConversations, Profile, Conversation } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 
 const Messages = () => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<Profile[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const { user: currentUser } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) {
+    if (!currentUser) {
       navigate("/auth");
       return;
     }
     
-    setCurrentUser(user);
-    setUsers(getUsers());
-    setConversations(getConversations(user.id));
-  }, [navigate]);
+    const loadData = async () => {
+      try {
+        const [usersData, conversationsData] = await Promise.all([
+          getAllProfiles(),
+          getConversations()
+        ]);
+        setUsers(usersData);
+        setConversations(conversationsData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [currentUser, navigate]);
 
   const filteredUsers = users.filter(user => 
-    user.id !== currentUser?.id &&
-    (user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     user.fullName.toLowerCase().includes(searchQuery.toLowerCase()))
+    user.user_id !== currentUser?.id &&
+    (user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const formatTime = (dateString: string) => {
@@ -44,8 +58,13 @@ const Messages = () => {
   };
 
   const getOtherParticipant = (conversation: Conversation) => {
-    const otherUserId = conversation.participants.find(id => id !== currentUser?.id);
-    return users.find(user => user.id === otherUserId);
+    // Find the other participant from users list based on conversation
+    const participantIds = users
+      .filter(user => user.user_id !== currentUser?.id)
+      .map(user => user.user_id);
+    
+    // For now, return the first user that isn't the current user
+    return users.find(user => user.user_id !== currentUser?.id);
   };
 
   if (!currentUser) return null;
@@ -104,19 +123,19 @@ const Messages = () => {
                   <Card 
                     key={user.id} 
                     className="border border-border hover:border-primary/20 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/messages/chat/${user.id}`)}
+                    onClick={() => navigate(`/messages/chat/${user.user_id}`)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
                         <Avatar className="w-12 h-12">
-                          <AvatarImage src={user.avatar} />
+                          <AvatarImage src={user.avatar_url} />
                           <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
-                            {user.fullName.charAt(0).toUpperCase()}
+                            {(user.full_name || user.username || 'U').charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-foreground">{user.username}</h3>
-                          <p className="text-sm text-muted-foreground truncate">{user.fullName}</p>
+                          <p className="text-sm text-muted-foreground truncate">{user.full_name}</p>
                         </div>
                         <Button variant="ghost" size="icon" className="text-primary">
                           <Send size={16} />
@@ -153,31 +172,27 @@ const Messages = () => {
                   <Card 
                     key={conversation.id} 
                     className="border border-border hover:border-primary/20 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/messages/chat/${otherUser.id}`)}
+                    onClick={() => navigate(`/messages/chat/${otherUser.user_id}`)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
                         <Avatar className="w-12 h-12">
-                          <AvatarImage src={otherUser.avatar} />
+                          <AvatarImage src={otherUser.avatar_url} />
                           <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
-                            {otherUser.fullName.charAt(0).toUpperCase()}
+                            {(otherUser.full_name || otherUser.username || 'U').charAt(0).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
                             <h3 className="font-semibold text-foreground">{otherUser.username}</h3>
                             <span className="text-xs text-muted-foreground">
-                              {formatTime(conversation.lastMessage.createdAt)}
+                              {conversation.updated_at ? formatTime(conversation.updated_at) : ''}
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground truncate">
-                            {conversation.lastMessage.fromUserId === currentUser.id ? "You: " : ""}
-                            {conversation.lastMessage.content}
+                            Start a conversation
                           </p>
                         </div>
-                        {!conversation.lastMessage.read && conversation.lastMessage.fromUserId !== currentUser.id && (
-                          <div className="w-2 h-2 bg-primary rounded-full"></div>
-                        )}
                       </div>
                     </CardContent>
                   </Card>

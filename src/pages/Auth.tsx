@@ -20,6 +20,7 @@ const Auth = () => {
     username: '',
     fullName: ''
   });
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   
   const navigate = useNavigate();
 
@@ -55,7 +56,18 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
+      if (isForgotPassword) {
+        const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
+          redirectTo: `${window.location.origin}/auth`,
+        });
+
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('Password reset email sent! Check your inbox.');
+          setIsForgotPassword(false);
+        }
+      } else if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
@@ -115,12 +127,14 @@ const Auth = () => {
             />
           </div>
           <CardTitle className="text-2xl font-bold">
-            {isLogin ? 'Welcome back' : 'Create account'}
+            {isForgotPassword ? 'Reset password' : (isLogin ? 'Welcome back' : 'Create account')}
           </CardTitle>
           <CardDescription>
-            {isLogin 
-              ? 'Sign in to your Montage account' 
-              : 'Join Montage to share your moments'
+            {isForgotPassword 
+              ? 'Enter your email to reset your password'
+              : (isLogin 
+                ? 'Sign in to your Montage account' 
+                : 'Join Montage to share your moments')
             }
           </CardDescription>
         </CardHeader>
@@ -137,7 +151,7 @@ const Auth = () => {
               />
             </div>
             
-            {!isLogin && (
+            {!isLogin && !isForgotPassword && (
               <>
                 <div className="space-y-2">
                   <Input
@@ -162,43 +176,65 @@ const Auth = () => {
               </>
             )}
             
-            <div className="space-y-2 relative">
-              <Input
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleInputChange}
-                required
-              />
-              <button
-                type="button"
-                onClick={togglePasswordVisibility}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
+            {!isForgotPassword && (
+              <div className="space-y-2 relative">
+                <Input
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={togglePasswordVisibility}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
+              </div>
+            )}
             
             <Button 
               type="submit" 
               className="w-full" 
               disabled={loading}
             >
-              {loading ? 'Please wait...' : (isLogin ? 'Sign in' : 'Create account')}
+              {loading ? 'Please wait...' : (isForgotPassword ? 'Send reset email' : (isLogin ? 'Sign in' : 'Create account'))}
             </Button>
           </form>
           
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              {isLogin 
-                ? "Don't have an account? Sign up" 
-                : 'Already have an account? Sign in'
-              }
-            </button>
+          <div className="mt-6 text-center space-y-2">
+            {!isForgotPassword && (
+              <>
+                <button
+                  onClick={() => setIsLogin(!isLogin)}
+                  className="text-sm text-muted-foreground hover:text-foreground block w-full"
+                >
+                  {isLogin 
+                    ? "Don't have an account? Sign up" 
+                    : 'Already have an account? Sign in'
+                  }
+                </button>
+                {isLogin && (
+                  <button
+                    onClick={() => setIsForgotPassword(true)}
+                    className="text-sm text-primary hover:text-primary/80"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </>
+            )}
+            {isForgotPassword && (
+              <button
+                onClick={() => setIsForgotPassword(false)}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Back to sign in
+              </button>
+            )}
           </div>
         </CardContent>
       </Card>
