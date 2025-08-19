@@ -1,54 +1,96 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Lock, Bell, HelpCircle, Shield, Settings2, Users, BarChart3, Ban } from "lucide-react";
+import { ArrowLeft, User, Lock, Bell, HelpCircle, Shield, Settings2, Users, BarChart3, Ban, LogOut, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { getCurrentUser, getUsers, banUser, verifyUser, logoutUser, User as UserType } from "@/lib/storage";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getAllProfiles, banUser as supabaseBanUser, verifyUser as supabaseVerifyUser, Profile } from "@/lib/supabase";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
 const Settings = () => {
-  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
-  const [allUsers, setAllUsers] = useState<UserType[]>([]);
+  const [allUsers, setAllUsers] = useState<Profile[]>([]);
   const [notifications, setNotifications] = useState(true);
   const [privateAccount, setPrivateAccount] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const { user: currentUser, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    const user = getCurrentUser();
-    if (!user) {
+    if (!currentUser) {
       navigate("/auth");
       return;
     }
-    setCurrentUser(user);
-    setAllUsers(getUsers());
-  }, [navigate]);
+    
+    const loadUsers = async () => {
+      try {
+        const users = await getAllProfiles();
+        setAllUsers(users);
+      } catch (error) {
+        console.error('Error loading users:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleBanUser = (userId: string) => {
-    banUser(userId);
-    setAllUsers(getUsers());
-    toast({
-      title: "User banned",
-      description: "User has been banned successfully.",
-    });
+    loadUsers();
+  }, [currentUser, navigate]);
+
+  const handleBanUser = async (userId: string) => {
+    try {
+      await supabaseBanUser(userId);
+      const users = await getAllProfiles();
+      setAllUsers(users);
+      toast({
+        title: "User banned",
+        description: "User has been banned successfully.",
+      });
+    } catch (error) {
+      console.error('Error banning user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to ban user.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleVerifyUser = (userId: string) => {
-    verifyUser(userId);
-    setAllUsers(getUsers());
-    toast({
-      title: "User verified",
-      description: "User has been verified successfully.",
-    });
+  const handleVerifyUser = async (userId: string) => {
+    try {
+      await supabaseVerifyUser(userId);
+      const users = await getAllProfiles();
+      setAllUsers(users);
+      toast({
+        title: "User verified",
+        description: "User has been verified successfully.",
+      });
+    } catch (error) {
+      console.error('Error verifying user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to verify user.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleLogout = () => {
-    logoutUser();
-    navigate("/auth");
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate("/auth");
+    } catch (error) {
+      console.error('Error signing out:', error);
+      toast({
+        title: "Error",
+        description: "Failed to sign out.",
+        variant: "destructive"
+      });
+    }
   };
 
-  if (!currentUser) return null;
+  if (!currentUser || !profile) return null;
 
   const settingsItems = [
     { icon: User, label: "Account", subtitle: "Privacy, security, password", path: "/settings/account" },
@@ -85,22 +127,28 @@ const Settings = () => {
 
       <div className="px-4 py-6 space-y-6">
         {/* Profile Section */}
-        <Card className="bg-card border-border">
+        <Card 
+          className="bg-card border-border cursor-pointer hover:bg-muted/50 transition-colors"
+          onClick={() => navigate(`/user/${profile.user_id}`)}
+        >
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-xl">
-                  {currentUser.fullName.charAt(0).toUpperCase()}
-                </span>
-              </div>
+              <Avatar className="w-16 h-16">
+                <AvatarImage src={profile.avatar_url} />
+                <AvatarFallback className="bg-gradient-primary text-primary-foreground font-bold text-xl">
+                  {(profile.full_name || profile.username || 'U').charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-foreground">{currentUser.fullName}</h3>
-                  {currentUser.isVerified && <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">✓</div>}
-                  {currentUser.isAdmin && <span className="px-2 py-1 bg-red-500 text-white text-xs rounded">ADMIN</span>}
+                  <h3 className="font-semibold text-foreground">{profile.full_name || profile.username}</h3>
+                  {profile.is_verified && <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">✓</div>}
+                  {profile.is_admin && <span className="px-2 py-1 bg-red-500 text-white text-xs rounded">ADMIN</span>}
                 </div>
-                <p className="text-muted-foreground">@{currentUser.username}</p>
+                <p className="text-muted-foreground">@{profile.username}</p>
+                <p className="text-sm text-muted-foreground mt-1">View and edit profile</p>
               </div>
+              <ChevronRight size={20} className="text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -148,7 +196,7 @@ const Settings = () => {
         </div>
 
         {/* Admin Panel */}
-        {currentUser.isAdmin && (
+        {profile?.is_admin && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-foreground">Admin Panel</h2>
             
@@ -176,37 +224,38 @@ const Settings = () => {
                   {allUsers.map((user) => (
                     <div key={user.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-primary rounded-full flex items-center justify-center">
-                          <span className="text-primary-foreground font-bold text-sm">
-                            {user.fullName.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage src={user.avatar_url} />
+                          <AvatarFallback className="bg-gradient-primary text-primary-foreground font-bold text-sm">
+                            {(user.full_name || user.username || 'U').charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
                         <div>
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-foreground">{user.username}</p>
-                            {user.isVerified && <div className="w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">✓</div>}
-                            {user.isAdmin && <span className="px-1 py-0.5 bg-red-500 text-white text-xs rounded">ADN</span>}
-                            {user.isBanned && <span className="px-1 py-0.5 bg-red-600 text-white text-xs rounded">BANNED</span>}
+                            {user.is_verified && <div className="w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs">✓</div>}
+                            {user.is_admin && <span className="px-1 py-0.5 bg-red-500 text-white text-xs rounded">ADMIN</span>}
+                            {user.is_banned && <span className="px-1 py-0.5 bg-red-600 text-white text-xs rounded">BANNED</span>}
                           </div>
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                          <p className="text-sm text-muted-foreground">{user.full_name}</p>
                         </div>
                       </div>
-                      {!user.isAdmin && (
+                      {!user.is_admin && (
                         <div className="flex gap-2">
-                          {!user.isVerified && (
+                          {!user.is_verified && (
                             <Button 
                               size="sm" 
                               variant="outline"
-                              onClick={() => handleVerifyUser(user.id)}
+                              onClick={() => handleVerifyUser(user.user_id)}
                             >
                               Verify
                             </Button>
                           )}
-                          {!user.isBanned && (
+                          {!user.is_banned && (
                             <Button 
                               size="sm" 
                               variant="destructive"
-                              onClick={() => handleBanUser(user.id)}
+                              onClick={() => handleBanUser(user.user_id)}
                             >
                               <Ban size={14} />
                             </Button>
@@ -224,9 +273,10 @@ const Settings = () => {
         {/* Logout Button */}
         <Button 
           variant="destructive" 
-          className="w-full"
+          className="w-full flex items-center gap-2"
           onClick={handleLogout}
         >
+          <LogOut size={20} />
           Log Out
         </Button>
       </div>

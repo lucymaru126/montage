@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
-import { Search as SearchIcon, Users, Hash } from "lucide-react";
+import { Search as SearchIcon, Users, Hash, UserPlus, MessageCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getAllProfiles, getPosts, Profile, Post } from "@/lib/supabase";
+import { getAllProfiles, getPosts, Profile, Post, followUser, unfollowUser, getFollowing } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const Search = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -16,8 +17,10 @@ const Search = () => {
   const [filteredUsers, setFilteredUsers] = useState<Profile[]>([]);
   const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userFollowings, setUserFollowings] = useState<string[]>([]);
   const { user: currentUser } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!currentUser) {
@@ -27,12 +30,14 @@ const Search = () => {
     
     const loadData = async () => {
       try {
-        const [usersData, postsData] = await Promise.all([
+        const [usersData, postsData, followingData] = await Promise.all([
           getAllProfiles(),
-          getPosts()
+          getPosts(),
+          getFollowing(currentUser.id)
         ]);
         setUsers(usersData);
         setPosts(postsData);
+        setUserFollowings(followingData.map(f => f.following_id));
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -65,6 +70,37 @@ const Search = () => {
 
   const getUserById = (userId: string) => {
     return users.find(user => user.user_id === userId);
+  };
+
+  const isFollowing = (userId: string) => {
+    return userFollowings.includes(userId);
+  };
+
+  const handleFollowToggle = async (targetUserId: string) => {
+    try {
+      if (isFollowing(targetUserId)) {
+        await unfollowUser(targetUserId);
+        setUserFollowings(prev => prev.filter(id => id !== targetUserId));
+        toast({
+          title: "Unfollowed",
+          description: "You are no longer following this user.",
+        });
+      } else {
+        await followUser(targetUserId);
+        setUserFollowings(prev => [...prev, targetUserId]);
+        toast({
+          title: "Following",
+          description: "You are now following this user.",
+        });
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update follow status.",
+        variant: "destructive"
+      });
+    }
   };
 
   if (!currentUser) return null;
@@ -109,16 +145,30 @@ const Search = () => {
                       </Avatar>
                       <h3 className="font-semibold text-sm text-foreground">{user.username}</h3>
                       <p className="text-xs text-muted-foreground mb-3 truncate">{user.full_name}</p>
-                      <Button 
-                        size="sm" 
-                        className="bg-gradient-primary text-primary-foreground text-xs px-4 py-1 rounded-full"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/user/${user.user_id}`);
-                        }}
-                      >
-                        View Profile
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant={isFollowing(user.user_id) ? "outline" : "default"}
+                          className="text-xs px-3 py-1 rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleFollowToggle(user.user_id);
+                          }}
+                        >
+                          {isFollowing(user.user_id) ? "Following" : "Follow"}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="text-xs px-2 py-1 rounded-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/messages/chat/${user.user_id}`);
+                          }}
+                        >
+                          <MessageCircle size={12} />
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -167,16 +217,30 @@ const Search = () => {
                             <p className="text-xs text-muted-foreground truncate mt-1">{user.bio}</p>
                           )}
                         </div>
-                        <Button 
-                          size="sm" 
-                          className="bg-gradient-primary text-primary-foreground px-4 py-1 rounded-full"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/user/${user.user_id}`);
-                          }}
-                        >
-                          View Profile
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            variant={isFollowing(user.user_id) ? "outline" : "default"}
+                            className="px-4 py-1 rounded-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFollowToggle(user.user_id);
+                            }}
+                          >
+                            {isFollowing(user.user_id) ? "Following" : "Follow"}
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            className="px-2 py-1 rounded-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/messages/chat/${user.user_id}`);
+                            }}
+                          >
+                            <MessageCircle size={16} />
+                          </Button>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

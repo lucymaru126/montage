@@ -333,7 +333,7 @@ export const unlikePost = async (postId: string) => {
   if (error) throw error;
 };
 
-export const addComment = async (postId: string, content: string): Promise<Comment> => {
+export const addPostComment = async (postId: string, content: string): Promise<Comment> => {
   const user = await getCurrentUser();
   if (!user) throw new Error('Not authenticated');
 
@@ -791,4 +791,104 @@ export const markAllNotificationsAsRead = async (): Promise<void> => {
     .eq('is_read', false);
 
   if (error) throw error;
+};
+
+// Admin Functions
+export const banUser = async (userId: string) => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_banned: true })
+    .eq('user_id', userId);
+
+  if (error) throw error;
+};
+
+export const verifyUser = async (userId: string) => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ is_verified: true })
+    .eq('user_id', userId);
+
+  if (error) throw error;
+};
+
+// Post detail functions
+export const getPostById = async (postId: string): Promise<Post> => {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*')
+    .eq('id', postId)
+    .single();
+
+  if (error) throw error;
+  
+  // Get profile separately
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('user_id', data.user_id)
+    .single();
+    
+  return { ...data, profiles: profileData };
+};
+
+export const getComments = async (postId: string): Promise<Comment[]> => {
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*')
+    .eq('post_id', postId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+  
+  // Get profiles separately
+  const commentsWithProfiles = await Promise.all(
+    (data || []).map(async (comment) => {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', comment.user_id)
+        .single();
+      
+      return { ...comment, profiles: profileData };
+    })
+  );
+  
+  return commentsWithProfiles;
+};
+
+export const addComment = async (postId: string, content: string): Promise<Comment> => {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const { data, error } = await supabase
+    .from('comments')
+    .insert({
+      post_id: postId,
+      user_id: user.id,
+      content
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  
+  // Get profile separately  
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('user_id', data.user_id)
+    .single();
+    
+  return { ...data, profiles: profileData };
+};
+
+export const getPostLikes = async (postId: string) => {
+  const { data, error } = await supabase
+    .from('post_likes')
+    .select('user_id')
+    .eq('post_id', postId);
+
+  if (error) throw error;
+  return data || [];
 };

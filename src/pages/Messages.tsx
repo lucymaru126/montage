@@ -58,13 +58,16 @@ const Messages = () => {
   };
 
   const getOtherParticipant = (conversation: Conversation) => {
-    // Find the other participant from users list based on conversation
-    const participantIds = users
-      .filter(user => user.user_id !== currentUser?.id)
-      .map(user => user.user_id);
+    // Find the other participant from the conversation participants
+    const otherParticipant = conversation.conversation_participants?.find(
+      p => p.user_id !== currentUser?.id
+    );
     
-    // For now, return the first user that isn't the current user
-    return users.find(user => user.user_id !== currentUser?.id);
+    if (otherParticipant) {
+      return users.find(user => user.user_id === otherParticipant.user_id);
+    }
+    
+    return null;
   };
 
   if (!currentUser) return null;
@@ -159,6 +162,7 @@ const Messages = () => {
                 </p>
                 <Button 
                   className="bg-gradient-primary text-primary-foreground px-6 py-3 rounded-full font-medium shadow-glow hover:shadow-lg transition-all duration-300"
+                  onClick={() => setSearchQuery("search")}
                 >
                   Start messaging
                 </Button>
